@@ -1,0 +1,20 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 02-attention
+---
+import AttentionStep from '../../components/AttentionStep.svelte';
+
+<AttentionStep client:load />
+
+<details>
+<summary>The math, once</summary>
+
+For one head, with $Q = XW_Q$, $K = XW_K$, $V = XW_V$:
+
+$$
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V
+$$
+
+Row $i$ of the result only uses row $i$ of $Q$, but every row $\le i$ of $K$ and $V$. That asymmetry is the whole next chapter.
+
+</details>

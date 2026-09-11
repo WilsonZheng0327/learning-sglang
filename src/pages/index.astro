@@ -1,0 +1,14 @@
+---
+import Chapter from '../layouts/Chapter.astro';
+import { chapters } from '../chapters';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<Chapter title="Learning SGLang">
+  <h1>Learning SGLang</h1>
+  <p>Each chapter ends on a question. The next one answers it.</p>
+  <ol>
+    {chapters.map((c) => (
+      <li>{c.ready ? <a href={`${base}/ch/${c.slug}/`}>{c.title}</a> : <span class="soon">{c.title}</span>} <span class="soon">· {c.hook}</span></li>
+    ))}
+  </ol>
+</Chapter>

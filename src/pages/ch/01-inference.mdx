@@ -1,0 +1,23 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 01-inference
+---
+import AutoregressiveGen from '../../components/AutoregressiveGen.svelte';
+
+<AutoregressiveGen client:load />
+
+<details>
+<summary>The same loop, in code</summary>
+
+```python
+ids = tokenizer.encode("The capital of France is")   # [791, 6864, 315, 9822, 374]
+while True:
+    logits = model(ids)             # forward pass over the WHOLE sequence
+    next_id = logits[-1].argmax()   # or sample from softmax(logits[-1])
+    ids.append(next_id)             # output becomes input
+    if next_id == EOS:
+        break
+print(tokenizer.decode(ids))
+```
+
+</details>
