@@ -35,7 +35,7 @@
 <svelte:window onkeydown={onkey} />
 
 <div class="controls">
-  <p class="caption">{@html caption}</p>
+  <p class="caption"><span>{@html caption}</span></p>
   <div class="row">
     <div class="buttons">
       <button class="icon" onclick={() => jump(0)} disabled={step === 0} title="Reset">↺</button>
@@ -54,7 +54,9 @@
 
 <style>
   .controls { font-family: var(--sans); flex: 0 0 auto; }
-  .caption { min-height: 2.9em; margin: 1rem auto 0.9rem; max-width: 60ch; text-align: center; font-size: 1.3rem; line-height: 1.45; letter-spacing: -0.01em; text-wrap: balance; }
+  /* Fixed height (3 lines) so the canvas above never shifts when a caption wraps differently. Keep captions to 3 lines at 60ch. */
+  .caption { --lh: 1.45; height: calc(1.3rem * var(--lh) * 3); margin: 0.6rem auto; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 1.3rem; line-height: var(--lh); letter-spacing: -0.01em; }
+  .caption span { max-width: 60ch; text-align: center; text-wrap: balance; }
   .caption :global(b) { font-weight: 650; }
   .caption :global(code) { font-family: var(--mono); font-size: 0.82em; background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 5px; }
   .row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1.25rem; }

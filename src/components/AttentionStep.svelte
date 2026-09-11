@@ -22,6 +22,7 @@
     x?: boolean; rows?: boolean; rowsFor?: number; flyIn?: boolean;
     attend?: number; scores?: boolean; weights?: boolean; mix?: boolean;
     causal?: boolean; recompute?: boolean; unusedQ?: boolean; tally?: boolean;
+    markNew?: boolean;        // highlight the latest token's column as "new"
   }
   const steps: Step[] = [
     { n: 5, caption: `Same five tokens, one forward pass. This time we watch what one attention layer does with them.` },
@@ -31,11 +32,14 @@
     { n: 5, rows: true, attend: 4, scores: true, weights: true, caption: `Softmax turns the scores into weights that add up to one.` },
     { n: 5, rows: true, attend: 4, weights: true, mix: true, caption: `Its output is the values, blended by those weights. This is how "is" finds out it's sitting after "capital of France".` },
     { n: 5, rows: true, causal: true, caption: `Every position does the same thing with its own query, over the keys up to itself. One pass, all five outputs at once.` },
-    { n: 6, rows: true, rowsFor: 5, flyIn: true, caption: `Decode step. "Paris" joins the sequence, and the layer runs again on all six.` },
-    { n: 6, rows: true, recompute: true, caption: `All six make q, k, v again. For the five old tokens: same x, same matrices, same vectors as last time.` },
-    { n: 6, rows: true, attend: 5, weights: true, mix: true, caption: `Paris's query looks at all six keys and blends all six values. It needs every earlier key and value.` },
-    { n: 6, rows: true, unusedQ: true, caption: `The old queries? They'd produce outputs for positions we already predicted. Nothing reads them.` },
-    { n: 6, rows: true, tally: true, caption: `So each decode step, the new token needs every earlier k and v, and nothing else from the past. We recomputed them all, identically, in every head of every layer. Why not just keep them?` },
+    // Decode step: the layer runs again, and it really does start over. Same three steps as above, on six tokens.
+    { n: 6, flyIn: true, caption: `Decode step. "Paris" joins the sequence, and the layer runs again on all six. From the top.` },
+    { n: 6, x: true, caption: `Six tokens come in as six vectors.` },
+    { n: 6, rows: true, caption: `Every token multiplies its x by the same three matrices. All six of them, from scratch.` },
+    { n: 6, rows: true, recompute: true, markNew: true, caption: `Look at the five old columns. Same x, same matrices, same vectors as last time. Nothing changed, we just computed them again.` },
+    { n: 6, rows: true, markNew: true, attend: 5, weights: true, mix: true, caption: `Paris's query looks at all six keys and blends all six values. It needs every earlier key and value.` },
+    { n: 6, rows: true, markNew: true, unusedQ: true, caption: `The old queries? They'd produce outputs for positions we already predicted. Nothing reads them.` },
+    { n: 6, rows: true, markNew: true, tally: true, caption: `So each decode step, the new token needs every earlier k and v, and nothing else from the past. We recomputed them all, identically, in every head of every layer. Why not just keep them?` },
   ];
 
   let step = $state(0);
@@ -67,7 +71,7 @@
 
   const rowsFor = $derived(cur.rows ? (cur.rowsFor ?? cur.n) : 0);
   const w = $derived(cur.attend !== undefined ? softmax(scores[cur.attend]) : []);
-  const isNewCol = (c: number) => cur.n > PROMPT_N && c >= PROMPT_N;
+  const isNewCol = (c: number) => !!cur.markNew && c >= PROMPT_N;
   const isOld = (c: number) => cur.n > PROMPT_N && c < PROMPT_N;
   const sameBadge = (r: Row, c: number) => (cur.recompute || cur.tally) && (r === 'k' || r === 'v') && isOld(c);
   const unused = (r: Row, c: number) => (cur.unusedQ || cur.tally) && r === 'q' && isOld(c);
@@ -88,7 +92,7 @@
           <text x={c.cx} y={seqY + 18} text-anchor="middle" class="tok">{c.t.replace(/^ /, '␣')}</text>
         </g>
       {/each}
-      {#if cur.n > PROMPT_N && rowsFor === cur.n}
+      {#if cur.markNew}
         <text x={cols[cur.n - 1].cx} y={ROW.x - 8} text-anchor="middle" class="tag new" in:fade>new</text>
       {/if}
 
