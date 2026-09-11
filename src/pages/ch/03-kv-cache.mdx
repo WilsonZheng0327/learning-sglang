@@ -1,0 +1,20 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 03-kv-cache
+---
+import KVCache from '../../components/KVCache.svelte';
+
+<KVCache client:load />
+
+<details>
+<summary>Cache size, once</summary>
+
+Per token, per sequence, the cache holds one $k$ and one $v$ for every head in every layer:
+
+$$
+\text{bytes per token} = 2 \cdot L \cdot H_{kv} \cdot d_{head} \cdot \text{bytes per value}
+$$
+
+Llama-3-8B: $2 \cdot 32 \cdot 8 \cdot 128 \cdot 2 = 131{,}072$ bytes, so 128 KB per token, or about 1 GB for an 8k-token context. Grouped-query attention is why $H_{kv} = 8$ rather than the 32 query heads.
+
+</details>

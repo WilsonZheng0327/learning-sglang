@@ -28,6 +28,7 @@ Chapters so far:
 
 1. `01-inference` / `AutoregressiveGen.svelte`: tokenize, forward, pick, append, until EOS. Ends on "what is being recomputed?"
 2. `02-attention` / `AttentionStep.svelte`: q, k, v per token, one token attending, then a decode step showing old k/v recomputed identically and old q unused. Ends on "why not keep them?"
+3. `03-kv-cache` / `KVCache.svelte`: the same grid plus a cache box. The first step fills it, decode steps compute one column and read the whole cache, q is shown as never read again, then the per-token cost. Ends on "two very different jobs" (prefill vs decode).
 
 
 ## The visualization pattern
@@ -40,6 +41,10 @@ Every viz is a function of a step number. A component:
 4. Hands `step`/`total`/`caption` to `StepControls.svelte`, which owns prev/next/reset, play/pause (space), step dots, and arrow keys. One viz per page, since the controls listen on the window.
 
 You write states, never keyframes. To add a step, add an entry. `?step=N` in the URL opens a viz at step N (1-based) so prose can deep-link.
+
+## Checking steps without a browser
+
+`node scripts/shot.mjs <outDir> <waitMs> name=url ...` screenshots pages through headless chromium with a real wall-clock wait, so Svelte transitions finish. Plain `chromium --screenshot --virtual-time-budget` freezes delayed transitions mid-flight and is not trustworthy for this site.
 
 ## Adding a chapter
 
