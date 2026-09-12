@@ -4,7 +4,7 @@
   import { chapters, type NavLink } from '../chapters';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
-  const CH_DISAGG = chNum('08-disaggregation'), CH_CUDA = chNum('09-cuda-graphs');
+  const CH_DISAGG = chNum('09-disaggregation'), CH_CUDA = chNum('10-cuda-graphs');
 
   // ---- Numbers, same as chapters 4 and 5: Llama-3-8B bf16 on one H100 -------------------------
   const W_GB = 16, BW = 3.35, FLOPS = 989, GFLOP = 16;

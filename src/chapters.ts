@@ -8,10 +8,11 @@ export const chapters: Chapter[] = [
   { slug: '04-prefill-decode', title: 'Prefill vs decode', hook: 'Two very different workloads.', ready: true },
   { slug: '05-batching', title: 'Batching & continuous batching', hook: 'Sharing a GPU between users.', ready: true },
   { slug: '06-scheduler', title: 'The scheduler', hook: 'Two lists, one GPU, one choice per step.', ready: true },
-  { slug: '07-kv-memory', title: 'KV memory', hook: 'Paging, prefix sharing, the memory cap.', ready: false },
-  { slug: '08-disaggregation', title: 'Prefill-decode disaggregation', hook: 'Two clocks, two machines.', ready: false },
-  { slug: '09-cuda-graphs', title: 'CUDA graphs', hook: 'Launching a thousand kernels as one.', ready: false },
-  { slug: '10-engines', title: 'Why engines exist', hook: 'SGLang, from the problems up.', ready: false },
+  { slug: '07-kv-memory', title: 'KV memory', hook: 'Pages, and the memory cap.', ready: true },
+  { slug: '08-prefix-caching', title: 'Prefix caching', hook: 'Same beginning, one copy.', ready: true },
+  { slug: '09-disaggregation', title: 'Prefill-decode disaggregation', hook: 'Two clocks, two machines.', ready: false },
+  { slug: '10-cuda-graphs', title: 'CUDA graphs', hook: 'Launching a thousand kernels as one.', ready: false },
+  { slug: '11-engines', title: 'Why engines exist', hook: 'SGLang, from the problems up.', ready: false },
 ];
 
 export interface NavLink { title: string; href: string; ready: boolean }

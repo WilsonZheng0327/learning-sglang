@@ -13,7 +13,10 @@ const port = 9333;
 const profile = mkdtempSync(join(tmpdir(), 'shot-'));
 const chrome = spawn('chromium', ['--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
   `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--window-size=1440,900', 'about:blank'], { stdio: 'ignore' });
-const shutdown = () => { chrome.kill(); rmSync(profile, { recursive: true, force: true }); };
+const shutdown = () => {
+  chrome.once('exit', () => { try { rmSync(profile, { recursive: true, force: true }); } catch {} });
+  chrome.kill();
+};
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let version;

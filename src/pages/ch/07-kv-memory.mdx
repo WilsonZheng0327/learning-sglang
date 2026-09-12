@@ -1,0 +1,21 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 07-kv-memory
+---
+import KVMemory from '../../components/KVMemory.svelte';
+import { neighbors } from '../../chapters';
+
+<KVMemory client:load {...neighbors('07-kv-memory')} />
+
+<details>
+<summary>The memory arithmetic, once</summary>
+
+Per token, the cache costs $2 \cdot L \cdot H_{kv} \cdot d_{head} \cdot \text{bytes}$, 128 KB for Llama-3-8B in bf16. The batch cap is
+
+$$
+B_{\max} = \left\lfloor \frac{\text{HBM} - \text{weights}}{\text{context} \times 128\,\text{KB}} \right\rfloor
+$$
+
+Reserving the maximum length per request wastes whatever is never written, typically well over half, and fragments as requests finish. Paging with page size $p$ wastes at most $p - 1$ tokens per request and never fragments: a request's cache is a list of page numbers, and the attention kernel gathers through that list. In SGLang, `TokenToKVPool` is the page pool (page size 1 by default), `req_to_token` holds the page tables, and `retract_decode` is the eviction when nothing frees up. Sharing pages across requests is the next chapter.
+
+</details>

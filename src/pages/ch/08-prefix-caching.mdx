@@ -1,0 +1,21 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 08-prefix-caching
+---
+import PrefixCaching from '../../components/PrefixCaching.svelte';
+import { neighbors } from '../../chapters';
+
+<PrefixCaching client:load {...neighbors('08-prefix-caching')} />
+
+<details>
+<summary>The prefix arithmetic, once</summary>
+
+Position $i$'s key and value are functions of tokens $1..i$, so two requests can share cache exactly for their longest common prefix $m$ and nothing past it. A shared prefix of $s$ tokens across $r$ requests costs $s$ tokens of cache instead of $r \cdot s$, and a newcomer prefills $P - m$ tokens:
+
+$$
+\text{TTFT} \approx \max\!\left(t_{\text{mem}},\; 2(P - m)\,t_{\text{tok}}\right)
+$$
+
+In a chat of $T$ turns with question $q_t$ and answer $a_t$, prefill without caching sums to $\sum_t (q_t + \sum_{u<t}(q_u + a_u))$ and with it to $\sum_t q_t$. SGLang's `RadixCache` is the tree, reference counts pin the pages of running requests, eviction is least-recently-used over unreferenced nodes, and `schedule_policy=lpm` orders the waiting list by matched length.
+
+</details>
