@@ -2,6 +2,8 @@
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import StepControls from './StepControls.svelte';
+  import type { NavLink } from '../chapters';
+  let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- The "script": one entry per generation round -------------------------------------------
   // Every round shows the same three phases, which is the whole point: inference is a loop.
@@ -191,7 +193,7 @@
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>

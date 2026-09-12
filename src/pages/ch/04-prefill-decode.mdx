@@ -1,0 +1,21 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 04-prefill-decode
+---
+import PrefillDecode from '../../components/PrefillDecode.svelte';
+import { neighbors } from '../../chapters';
+
+<PrefillDecode client:load {...neighbors('04-prefill-decode')} />
+
+<details>
+<summary>The arithmetic, once</summary>
+
+A step with $n$ tokens needs roughly $2Pn$ FLOPs for a model with $P$ parameters, and has to read the weights ($2P$ bytes in bf16) plus the cache no matter what $n$ is:
+
+$$
+t_{\text{compute}} = \frac{2Pn}{\text{FLOP/s}}, \qquad t_{\text{memory}} = \frac{2P + \text{cache}}{\text{bytes/s}}
+$$
+
+They cross at $n^* = \dfrac{\text{FLOP/s}}{\text{bytes/s}}$, the accelerator's ratio of compute to bandwidth. For an H100 that's about $989 \cdot 10^{12} / 3.35 \cdot 10^{12} \approx 300$ tokens per step. Decode runs at $n = 1$ per sequence.
+
+</details>

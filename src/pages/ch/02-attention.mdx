@@ -3,8 +3,9 @@ layout: ../../layouts/Chapter.astro
 slug: 02-attention
 ---
 import AttentionStep from '../../components/AttentionStep.svelte';
+import { neighbors } from '../../chapters';
 
-<AttentionStep client:load />
+<AttentionStep client:load {...neighbors('02-attention')} />
 
 <details>
 <summary>The math, once</summary>

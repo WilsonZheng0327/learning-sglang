@@ -14,6 +14,8 @@ const title: string = fm.title ?? chapter?.title ?? 'Learning SGLang';
 const hook: string | undefined = fm.hook ?? chapter?.hook;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const pad = (n: number) => String(n).padStart(2, '0');
+const prev = idx > 0 ? chapters[idx - 1] : undefined;
+const next = idx >= 0 ? chapters[idx + 1] : undefined;
 ---
 <html lang="en">
   <head>
@@ -41,11 +43,17 @@ const pad = (n: number) => String(n).padStart(2, '0');
       {chapter ? (
         <main class="stage">
           <header class="stage-head">
-            <div class="kicker">Chapter {pad(idx + 1)}</div>
-            <div class="titles">
-              <h1>{title}</h1>
-              {hook && <p class="hook">{hook}</p>}
+            <div>
+              <div class="kicker">Chapter {pad(idx + 1)}</div>
+              <div class="titles">
+                <h1>{title}</h1>
+                {hook && <p class="hook">{hook}</p>}
+              </div>
             </div>
+            <nav class="chapter-nav" aria-label="chapters">
+              {prev && (prev.ready ? <a href={`${base}/ch/${prev.slug}/`}>← {prev.title}</a> : <span>← {prev.title}</span>)}
+              {next && (next.ready ? <a href={`${base}/ch/${next.slug}/`}>{next.title} →</a> : <span>{next.title} <em>soon</em> →</span>)}
+            </nav>
           </header>
           <slot />
         </main>

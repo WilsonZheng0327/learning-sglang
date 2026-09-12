@@ -2,6 +2,8 @@
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import StepControls from './StepControls.svelte';
+  import type { NavLink } from '../chapters';
+  let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- Data --------------------------------------------------------------------------------
   const tokens = ['The', ' capital', ' of', ' France', ' is', ' Paris', '.'];
@@ -188,7 +190,7 @@
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={2800} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} interval={2800} onchange={(s) => (step = s)} />
 </figure>
 
 <style>

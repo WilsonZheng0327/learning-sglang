@@ -3,8 +3,9 @@ layout: ../../layouts/Chapter.astro
 slug: 01-inference
 ---
 import AutoregressiveGen from '../../components/AutoregressiveGen.svelte';
+import { neighbors } from '../../chapters';
 
-<AutoregressiveGen client:load />
+<AutoregressiveGen client:load {...neighbors('01-inference')} />
 
 <details>
 <summary>The same loop, in code</summary>

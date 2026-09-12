@@ -3,8 +3,9 @@ layout: ../../layouts/Chapter.astro
 slug: 03-kv-cache
 ---
 import KVCache from '../../components/KVCache.svelte';
+import { neighbors } from '../../chapters';
 
-<KVCache client:load />
+<KVCache client:load {...neighbors('03-kv-cache')} />
 
 <details>
 <summary>Cache size, once</summary>

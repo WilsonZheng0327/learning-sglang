@@ -42,15 +42,27 @@ const waitEvent = (name, sessionId) => new Promise((resolve) => {
 const { result: { targetId } } = await send('Target.createTarget', { url: 'about:blank' });
 const { result: { sessionId } } = await send('Target.attachToTarget', { targetId, flatten: true });
 await send('Page.enable', {}, sessionId);
-await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
+await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: Number(process.env.SCALE) || 1, mobile: false }, sessionId);
 
+// name=url|Key,Key presses keys after load (e.g. "|Space" to start playback, "|ArrowRight,ArrowRight" to step).
+const KEYS = { Space: { key: ' ', code: 'Space' }, ArrowRight: { key: 'ArrowRight', code: 'ArrowRight' }, ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft' } };
 for (const pair of pairs) {
-  const eq = pair.indexOf('='); const name = pair.slice(0, eq); const url = pair.slice(eq + 1);
+  const eq = pair.indexOf('='); const name = pair.slice(0, eq);
+  const [url, keys = ''] = pair.slice(eq + 1).split('|');
   const loaded = waitEvent('Page.loadEventFired', sessionId);
   await send('Page.navigate', { url }, sessionId);
   await loaded;
+  await sleep(800);
+  for (const k of keys.split(',').filter(Boolean)) {
+    const def = KEYS[k] ?? { key: k, code: k };
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', ...def }, sessionId);
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', ...def }, sessionId);
+    await sleep(150);
+  }
   await sleep(waitMs);
-  const { result: { data } } = await send('Page.captureScreenshot', { format: 'png' }, sessionId);
+  // CLIP="x,y,w,h" captures just that CSS-pixel region at 2x, handy for inspecting small controls.
+  const clip = process.env.CLIP ? (([x, y, width, height]) => ({ x, y, width, height, scale: 2 }))(process.env.CLIP.split(',').map(Number)) : undefined;
+  const { result: { data } } = await send('Page.captureScreenshot', { format: 'png', ...(clip ? { clip } : {}) }, sessionId);
   writeFileSync(join(outDir, `${name}.png`), Buffer.from(data, 'base64'));
   console.log(`${name}.png <- ${url}`);
 }
