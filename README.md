@@ -30,6 +30,8 @@ Chapters so far:
 2. `02-attention` / `AttentionStep.svelte`: q, k, v per token, one token attending, then a decode step showing old k/v recomputed identically and old q unused. Ends on "why not keep them?"
 3. `03-kv-cache` / `KVCache.svelte`: the same grid plus a cache box. The first step fills it, decode steps compute one column and read the whole cache, q is shown as never read again, then the per-token cost. Ends on "two very different jobs" (prefill vs decode).
 4. `04-prefill-decode` / `PrefillDecode.svelte`: names the two step types, then one step on the GPU: weights streamed from HBM every step, n tokens riding that read, time bars (memory vs compute), the KV-cache read, a roofline-style chart with the ~300-token balance point, a chat timeline (time to first token vs per-token), and the idle-compute closer. Numbers are Llama-3-8B bf16 on one H100. Ends on "what if it weren't one person?" (batching).
+5. `05-batching` / `Batching.svelte`: B users share one weight read (stat tiles), the ~300 sweet spot, a ragged request timeline, static batching defined, the slots×steps grid for static vs continuous batching with prefill columns drawn wider and marked ⫽, and the closing "who goes first? a scheduler's job". Chunked prefill and the memory cap were deliberately moved out: chunked prefill belongs to 06 (scheduler), the memory cap to 07 (KV memory).
+6. `06-scheduler` / `Scheduler.svelte`: opens on chapter 5's stretched step; two lists (waiting, running) and one batch per step; the two shapes (show, don't tell) and why they get separate batches, with forward references to 08 (disaggregation) and 09 (CUDA graphs) computed from `chapters.ts`; prefill-first and its freeze; batched prefill; chunked not-mixed vs chunked mixed, with a step-type strip under every timeline; the three-policy comparison; the decision loop.
 
 
 ## The visualization pattern
@@ -39,7 +41,7 @@ Every viz is a function of a step number. A component:
 1. Declares a small **script** (data for each round), e.g. the prompt tokens and per-round distributions in `AutoregressiveGen.svelte`.
 2. Expands it into a flat `steps[]` array where each entry is a full **state**: what is on screen plus a caption.
 3. Renders the current state as SVG. Svelte's `in:fly`/`transition:fade` handle the motion between states.
-4. Hands `step`/`total`/`caption` to `StepControls.svelte`, which owns prev/next/reset, play/pause (space), progress segments, and arrow keys. One viz per page, since the controls listen on the window. Pass `{...neighbors(slug)}` from the MDX so the first step offers the previous chapter and the last step offers the next one (arrow keys follow suit).
+4. Hands `step`/`total`/`caption` to `StepControls.svelte`, which owns prev/next/reset, play/pause (space), progress segments, and arrow keys. One viz per page, since the controls listen on the window. Pass `{...neighbors(slug)}` from the MDX so the first step offers the previous chapter and the last step offers the next one. Arrow keys only move within a chapter.
 
 You write states, never keyframes. To add a step, add an entry. `?step=N` in the URL opens a viz at step N (1-based) so prose can deep-link.
 

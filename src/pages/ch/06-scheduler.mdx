@@ -1,0 +1,21 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 06-scheduler
+---
+import Scheduler from '../../components/Scheduler.svelte';
+import { neighbors } from '../../chapters';
+
+<Scheduler client:load {...neighbors('06-scheduler')} />
+
+<details>
+<summary>The scheduler's arithmetic, once</summary>
+
+A prefill batch of $P$ tokens takes about $2P \cdot t_{\text{tok}}$; a decode step takes $t_{\text{step}} \approx t_{\text{mem}}$. With prefill-first, a newcomer gets $\text{TTFT} \approx 2P\,t_{\text{tok}}$ and everyone else sees a gap of that plus one decode step. Capping prefill batches at $c$ tokens and alternating gives
+
+$$
+\text{gap} \approx 2c\,t_{\text{tok}} + t_{\text{step}}, \qquad \text{TTFT} \approx \lceil P/c \rceil \cdot 2c\,t_{\text{tok}} + (\lceil P/c \rceil - 1)\, t_{\text{step}}
+$$
+
+Mixing a chunk of $c \le n^* - B$ into each decode step removes the gap entirely and gives $\text{TTFT} \approx \lceil P/c \rceil \cdot t_{\text{step}}$. In SGLang: `chunked_prefill_size` is $c$, `enable_mixed_chunk` turns on mixing, `schedule_policy` orders the waiting list, and the loop above is `Scheduler.get_next_batch_to_run()`, which tries to build a prefill batch first and falls back to the running decode batch.
+
+</details>

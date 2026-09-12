@@ -33,8 +33,8 @@
   function onkey(e: KeyboardEvent) {
     const t = e.target as HTMLElement | null;
     if (t && /^(input|textarea|select)$/i.test(t.tagName)) return;
-    if (e.key === 'ArrowRight') { e.preventDefault(); stop(); nextLink ? (location.href = nextLink.href) : go(1); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); stop(); prevLink ? (location.href = prevLink.href) : go(-1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); stop(); go(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); stop(); go(-1); }
     else if (e.key === ' ') { e.preventDefault(); toggle(); }
   }
   const pad = (n: number) => String(n).padStart(2, '0');

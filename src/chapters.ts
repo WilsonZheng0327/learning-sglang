@@ -4,10 +4,14 @@ export interface Chapter { slug: string; title: string; hook: string; ready: boo
 export const chapters: Chapter[] = [
   { slug: '01-inference', title: 'Bare-minimum inference', hook: 'One function, called in a loop.', ready: true },
   { slug: '02-attention', title: 'Attention, per decode step', hook: 'What a new token needs from the past.', ready: true },
-  { slug: '03-kv-cache', title: 'The KV cache', hook: 'Keep k and v. Drop q.', ready: true },
+  { slug: '03-kv-cache', title: 'KV cache', hook: 'Keep k and v. Drop q.', ready: true },
   { slug: '04-prefill-decode', title: 'Prefill vs decode', hook: 'Two very different workloads.', ready: true },
-  { slug: '05-batching', title: 'Many requests at once', hook: 'Sharing a GPU between users.', ready: false },
-  { slug: '06-engines', title: 'Why engines exist', hook: 'SGLang, from the problems up.', ready: false },
+  { slug: '05-batching', title: 'Batching & continuous batching', hook: 'Sharing a GPU between users.', ready: true },
+  { slug: '06-scheduler', title: 'The scheduler', hook: 'Two lists, one GPU, one choice per step.', ready: true },
+  { slug: '07-kv-memory', title: 'KV memory', hook: 'Paging, prefix sharing, the memory cap.', ready: false },
+  { slug: '08-disaggregation', title: 'Prefill-decode disaggregation', hook: 'Two clocks, two machines.', ready: false },
+  { slug: '09-cuda-graphs', title: 'CUDA graphs', hook: 'Launching a thousand kernels as one.', ready: false },
+  { slug: '10-engines', title: 'Why engines exist', hook: 'SGLang, from the problems up.', ready: false },
 ];
 
 export interface NavLink { title: string; href: string; ready: boolean }

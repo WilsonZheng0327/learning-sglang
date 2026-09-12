@@ -1,0 +1,21 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 05-batching
+---
+import Batching from '../../components/Batching.svelte';
+import { neighbors } from '../../chapters';
+
+<Batching client:load {...neighbors('05-batching')} />
+
+<details>
+<summary>The batching arithmetic, once</summary>
+
+With $B$ sequences decoding together, one step costs $\max(t_{\text{mem}},\; B \cdot t_{\text{tok}})$, so throughput is
+
+$$
+\frac{B}{\max(t_{\text{mem}},\; B\,t_{\text{tok}})} \;\text{tokens/s}
+$$
+
+linear in $B$ until $B \approx n^* \approx 300$, then flat. Static batching pays for that with idle slots and queueing; continuous batching (Orca, 2022) re-forms the batch at every step, which is why every serving engine does it now.
+
+</details>
