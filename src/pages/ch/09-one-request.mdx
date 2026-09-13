@@ -1,0 +1,17 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 09-one-request
+---
+import OneRequest from '../../components/OneRequest.svelte';
+import { neighbors } from '../../chapters';
+
+<OneRequest client:load {...neighbors('09-one-request')} />
+
+<details>
+<summary>The moving parts, once</summary>
+
+`python -m sglang.launch_server` starts three kinds of process. The HTTP server (FastAPI on uvicorn) and the `TokenizerManager` share one process: it accepts connections, applies the chat template, tokenizes, and owns every open response stream. The `Scheduler` runs in its own process, one per GPU, and does nothing but the loop from chapters 6 to 8. The `DetokenizerManager` turns token ids back into text incrementally.
+
+They talk over ZeroMQ PUSH/PULL sockets on `ipc://` Unix domain sockets: `TokenizedGenerateReqInput` in, `BatchTokenIDOut` to the detokenizer, `BatchStrOut` back to the server. The scheduler calls `recv_pyobj(zmq.NOBLOCK)` in a loop at the top of each step to drain everything that arrived. Streaming responses are server-sent events, one `data:` line per token in the OpenAI-compatible format.
+
+</details>

@@ -62,17 +62,41 @@ a { color: inherit; text-decoration: none; }
 .stage .katex-display { margin: 0.6rem 0 0; }
 
 /* home page */
-.home { max-width: 640px; padding: 3rem 2.5rem; }
-.home h1 { font-size: 1.8rem; margin: 0 0 0.5rem; letter-spacing: -0.02em; }
-.home p { color: var(--muted); }
-.home ol { padding-left: 1.5rem; }
-.home li { margin: 0.4rem 0; }
-.home li a { color: var(--accent); }
-.home li span.soon { color: var(--muted); }
+.home { max-width: none; padding: 3.5rem 4rem 3rem; }
+.home .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 4rem; align-items: start; margin-bottom: 2.75rem; }
+.home .kicker { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.75rem; }
+.home h1 { font-size: 2.8rem; line-height: 1.08; margin: 0 0 0.6rem; letter-spacing: -0.025em; font-weight: 700; }
+.home .sub { font-size: 1.3rem; color: var(--muted); margin: 0 0 0.5rem; }
+.home .by { font-size: 0.95rem; color: var(--muted); margin: 0 0 1.5rem; }
+.home .by a { color: var(--fg); border-bottom: 1px solid var(--line); }
+.home .by a:hover { border-color: var(--accent); }
+.home .start { display: inline-block; background: var(--accent); color: white; padding: 0.65rem 1.2rem; border-radius: 999px; font-weight: 550; font-size: 0.95rem; }
+.home .start:hover { filter: brightness(1.07); }
+.home .how { display: grid; gap: 0.9rem; font-size: 0.9rem; line-height: 1.5; color: var(--muted); padding-top: 1.6rem; }
+.home .how > div { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem 1rem; }
+.home .how b { color: var(--fg); font-weight: 600; display: block; margin-bottom: 0.2rem; }
+.home .how kbd { font: inherit; font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--line); border-radius: 4px; padding: 0 0.3em; background: var(--bg); }
+.home .toc ol { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.home .toc li > a, .home .toc li > .dim { display: block; height: 100%; padding: 1rem 1.1rem 1.05rem; border: 1px solid var(--line); border-radius: 12px; background: white; transition: border-color 150ms, transform 120ms; }
+.home .toc li > a:hover { border-color: var(--accent); transform: translateY(-1px); }
+.home .toc li > .dim { background: transparent; border-style: dashed; position: relative; }
+.home .toc .n { display: block; font-family: var(--mono); font-size: 0.72rem; color: var(--faint); margin-bottom: 0.5rem; }
+.home .toc .t { display: block; font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 0.25rem; }
+.home .toc .h { display: block; font-size: 0.9rem; color: var(--muted); line-height: 1.4; }
+.home .toc .dim .t { color: var(--muted); font-weight: 550; }
+.home .toc em { position: absolute; top: 1rem; right: 1rem; font-style: normal; font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
+.home .foot { display: flex; justify-content: space-between; gap: 2rem; margin-top: 2.5rem; font-size: 0.8rem; color: var(--faint); }
+.home .foot a { color: var(--muted); }
+
+.sidebar .byline { margin: 0.75rem 0 0; font-size: 0.75rem; color: var(--faint); }
+.sidebar .byline a { color: var(--muted); }
+.sidebar .byline a:hover { color: var(--accent); }
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
   .sidebar .hints { display: none; }
+  .home { padding: 2rem 1.25rem; }
+  .home .hero { grid-template-columns: 1fr; gap: 1.5rem; }
   .stage { height: auto; min-height: 100vh; padding: 1rem; }
 }

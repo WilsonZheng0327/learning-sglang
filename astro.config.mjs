@@ -8,7 +8,10 @@ import rehypeKatex from 'rehype-katex';
 
 // https://astro.build/config
 export default defineConfig({
-  // For GitHub Pages under a repo, set: site: 'https://<user>.github.io', base: '/learning-sglang'
+  // GitHub Pages project site: https://wilsonzheng0327.github.io/learning-sglang/
+  // Every internal link reads import.meta.env.BASE_URL, so the base path is set in one place.
+  site: 'https://wilsonzheng0327.github.io',
+  base: '/learning-sglang',
   integrations: [mdx(), svelte()],
   markdown: {
     // Astro 7 defaults to the Sätteri processor; we use unified so remark/rehype plugins (KaTeX) work.

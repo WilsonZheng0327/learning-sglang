@@ -1,0 +1,26 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 10-engine
+---
+import Engine from '../../components/Engine.svelte';
+import { neighbors } from '../../chapters';
+
+<Engine client:load {...neighbors('10-engine')} />
+
+<details>
+<summary>The loop, once, as code</summary>
+
+```python
+while True:
+    reqs = recv_requests()                 # drain the zmq inbox, non-blocking
+    process_input_requests(reqs)           # message → Req, prefix match, waiting_queue.append
+    batch = get_next_batch_to_run()        # a prefill batch if anyone waits and pages allow, else running_batch
+    if batch is None:
+        continue
+    result = run_batch(batch)              # ScheduleBatch → tensors → ModelRunner.forward → Sampler
+    process_batch_result(batch, result)    # append tokens, finish Reqs, free/keep pages, send BatchTokenIDOut
+```
+
+That is `Scheduler.event_loop_normal` in `managers/scheduler.py`. `event_loop_overlap` is the same loop with the CPU work of the next step launched before the current step's result is processed; sampled tokens are left on the GPU and read by the next forward pass directly, which is why the GPU lane stays solid.
+
+</details>

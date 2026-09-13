@@ -4,7 +4,7 @@
   import { chapters, type NavLink } from '../chapters';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
-  const CH_DISAGG = chNum('09-disaggregation');
+  const CH_NEXT = chNum('09-one-request');
 
   // ---- Numbers ----------------------------------------------------------------------------------
   const W_GB = 16, BW = 3.35, FLOPS = 989, GFLOP = 16;
@@ -65,7 +65,7 @@
     { scene: 'tree', variant: 1, caption: `A newcomer walks the tree: ${matched} of its ${newTotal} tokens are already there, so it prefills ${NEW.tokens}. First token in ${fmt(stepMs(NEW.tokens))} instead of ${fmt(stepMs(newTotal))}, and ${matched} tokens of cache it never had to allocate.` },
     { scene: 'chat', caption: `Chat is the big win. Every turn's prompt is the previous turn plus a question. Without the tree, turn 3 re-prefills the whole conversation, ${(cumBefore(2) + turns[2].q).toLocaleString()} tokens. With it, ${turns[2].q}.` },
     { scene: 'tree', variant: 2, caption: `Nodes nobody is running stay as long as memory allows. When the pool needs pages, the least recently used branch goes first. Pages of running requests are pinned and never evicted.` },
-    { scene: 'closing', caption: `And the scheduler knows all this. Longest-prefix-match orders the waiting list by how much is already cached: cheapest prefill first, and the hot branches stay hot. Next: prefill and decode on different machines.` },
+    { scene: 'closing', caption: `And the scheduler knows all this. Longest-prefix-match orders the waiting list by how much is already cached: cheapest prefill first, and the hot branches stay hot. Next: where requests come from, and where the tokens go.` },
   ];
 
   let step = $state(0);

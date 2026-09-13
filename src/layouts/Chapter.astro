@@ -4,13 +4,14 @@ import '@fontsource-variable/jetbrains-mono';
 import 'katex/dist/katex.min.css';
 import '../styles/global.css';
 import { chapters } from '../chapters';
+import { site } from '../site';
 
 // MDX passes frontmatter both spread and as `frontmatter`; accept either.
 const fm = (Astro.props as any).frontmatter ?? Astro.props;
 const slug: string | undefined = fm.slug;
 const idx = chapters.findIndex((c) => c.slug === slug);
 const chapter = idx >= 0 ? chapters[idx] : undefined;
-const title: string = fm.title ?? chapter?.title ?? 'Learning SGLang';
+const title: string = fm.title ?? chapter?.title ?? site.name;
 const hook: string | undefined = fm.hook ?? chapter?.hook;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -22,13 +23,13 @@ const next = idx >= 0 ? chapters[idx + 1] : undefined;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
-    <title>{title} · Learning SGLang</title>
+    <title>{title} · {site.name}</title>
   </head>
   <body>
     <div class="shell">
       <nav class="sidebar">
-        <a class="brand" href={`${base}/`}>Learning SGLang</a>
-        <p class="tagline">Inference engines, from the problems up.</p>
+        <a class="brand" href={`${base}/`}>{site.name}</a>
+        <p class="tagline">{site.tagline}</p>
         <ol>
           {chapters.map((c, i) => (
             <li class:list={[{ current: c.slug === slug, soon: !c.ready }]}>
@@ -39,6 +40,7 @@ const next = idx >= 0 ? chapters[idx + 1] : undefined;
           ))}
         </ol>
         <div class="hints"><kbd>←</kbd> <kbd>→</kbd> step<br /><kbd>space</kbd> play</div>
+        <p class="byline">by <a href={site.author.url}>{site.author.name}</a></p>
       </nav>
       {chapter ? (
         <main class="stage">

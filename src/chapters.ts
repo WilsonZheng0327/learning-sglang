@@ -10,9 +10,11 @@ export const chapters: Chapter[] = [
   { slug: '06-scheduler', title: 'The scheduler', hook: 'Two lists, one GPU, one choice per step.', ready: true },
   { slug: '07-kv-memory', title: 'KV memory', hook: 'Pages, and the memory cap.', ready: true },
   { slug: '08-prefix-caching', title: 'Prefix caching', hook: 'Same beginning, one copy.', ready: true },
-  { slug: '09-disaggregation', title: 'Prefill-decode disaggregation', hook: 'Two clocks, two machines.', ready: false },
-  { slug: '10-cuda-graphs', title: 'CUDA graphs', hook: 'Launching a thousand kernels as one.', ready: false },
-  { slug: '11-engines', title: 'Why engines exist', hook: 'SGLang, from the problems up.', ready: false },
+  { slug: '09-one-request', title: 'One request, end to end', hook: 'From an HTTP POST to the GPU and back.', ready: true },
+  { slug: '10-engine', title: "The scheduler's loop", hook: 'One Req through one step.', ready: true },
+  { slug: '11-cuda-graphs', title: 'CUDA graphs', hook: 'Launching a thousand kernels as one.', ready: false },
+  { slug: '12-tensor-parallel', title: 'Tensor parallelism', hook: 'A model bigger than one GPU.', ready: false },
+  { slug: '13-disaggregation', title: 'Prefill-decode disaggregation', hook: 'Two clocks, two machines.', ready: false },
 ];
 
 export interface NavLink { title: string; href: string; ready: boolean }

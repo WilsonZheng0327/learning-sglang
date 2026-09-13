@@ -1,14 +1,41 @@
 ---
 import Chapter from '../layouts/Chapter.astro';
 import { chapters } from '../chapters';
+import { site } from '../site';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const ready = chapters.filter((c) => c.ready).length;
+const pad = (n: number) => String(n).padStart(2, '0');
 ---
-<Chapter title="Learning SGLang">
-  <h1>Learning SGLang</h1>
-  <p>Each chapter ends on a question. The next one answers it.</p>
-  <ol>
-    {chapters.map((c) => (
-      <li>{c.ready ? <a href={`${base}/ch/${c.slug}/`}>{c.title}</a> : <span class="soon">{c.title}</span>} <span class="soon">· {c.hook}</span></li>
-    ))}
-  </ol>
+<Chapter title={site.name}>
+  <section class="hero">
+    <div class="intro">
+      <p class="kicker">an illustrated guide · {ready} of {chapters.length} chapters</p>
+      <h1>{site.name}</h1>
+      <p class="sub">{site.tagline}</p>
+      <p class="by">Written and drawn by <a href={site.author.url}>{site.author.name}</a>.</p>
+      <a class="start" href={`${base}/ch/${chapters[0].slug}/`}>Start at chapter 1 →</a>
+    </div>
+    <div class="how">
+      <div><b>One picture per chapter.</b> Each chapter is a single visualization you step through. The captions are the narration; there is almost no other text.</div>
+      <div><b>Every chapter ends on a question.</b> The next chapter is the answer. By the end, an inference engine isn't a pile of features but the obvious response to a chain of "so what do we do about that?"</div>
+      <div><b>Keys.</b> <kbd>←</kbd> <kbd>→</kbd> to step, <kbd>space</kbd> to play. The last step of a chapter offers the next one.</div>
+    </div>
+  </section>
+
+  <section class="toc">
+    <ol>
+      {chapters.map((c, i) => (
+        <li class:list={[{ soon: !c.ready }]}>
+          {c.ready
+            ? <a href={`${base}/ch/${c.slug}/`}><span class="n">{pad(i + 1)}</span><span class="t">{c.title}</span><span class="h">{c.hook}</span></a>
+            : <span class="dim"><span class="n">{pad(i + 1)}</span><span class="t">{c.title}</span><span class="h">{c.hook}</span><em>soon</em></span>}
+        </li>
+      ))}
+    </ol>
+  </section>
+
+  <footer class="foot">
+    <span>Numbers throughout are for Llama-3-8B in bf16 on one H100 unless a chapter says otherwise.</span>
+    <span>Built with Astro and Svelte · <a href={site.repo}>source</a></span>
+  </footer>
 </Chapter>
