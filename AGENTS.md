@@ -1,12 +1,19 @@
-## Development
+`CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`.
 
-When starting the dev server, use background mode:
+## Commands
 
+```sh
+npm install
+npx astro dev --background     # then: astro dev stop | astro dev status | astro dev logs
+npm run build                  # the only check there is
+npm run preview
 ```
-astro dev --background
-```
 
-Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
+Node >= 22.12 (`engines` in package.json). Dev and preview both serve at
+`http://localhost:4321/learning-sglang/` — the `base` path, not the root.
+
+There is no test suite and no linter. `npm run build` is the whole gate; type errors
+surface only through it, since `@astrojs/check` is not installed.
 
 ## Documentation
 
@@ -30,8 +37,14 @@ Moved here from the README so the README stays reader-facing.
 - **Astro + MDX**: each chapter is `src/pages/ch/NN-name.mdx`. Prose is markdown, visualizations are components dropped inline.
 - **Svelte 5** for the interactive components (`src/components/`). Transitions and `$derived` state do the animation work.
 - **Fonts** are self-hosted via `@fontsource-variable/inter` and `@fontsource-variable/jetbrains-mono`, imported in the layout.
-- **KaTeX** for math via remark-math/rehype-katex. `katex` in package.json is pinned to the same version rehype-katex bundles; a mismatch breaks subscripts because the CSS class scheme changed in 0.18.
-- Sidebar order and "coming soon" flags live in `src/chapters.ts`.
+- **KaTeX** for math via remark-math/rehype-katex. Two things to leave alone: `katex` in package.json is pinned to the same version rehype-katex bundles (a mismatch breaks subscripts, because the CSS class scheme changed in 0.18), and `astro.config.mjs` passes an explicit `unified()` processor because Astro 7 defaults to Sätteri, which would not run the remark/rehype plugins at all.
+- Sidebar order, part grouping, and "coming soon" flags live in `src/chapters.ts`. Site name, tagline, author, and repo link live in `src/site.ts`.
+
+## How a page is assembled
+
+- `src/chapters.ts` is the single source of truth for the roster: four `parts` (`loop`, `fast`, `scale`, `omni`) and one `chapters` entry per chapter (`slug`, `title`, `hook`, `part`, `ready`). `neighbors(slug)` reads from it. The README's chapter table is a second, hand-maintained rendering of the same list — update it in the same commit.
+- `src/layouts/Chapter.astro` is the only layout. Chapter frontmatter is just `layout` + `slug`; the layout looks the slug up in `chapters.ts` for the title, hook, number, sidebar highlight, and header prev/next. `index.astro` renders through the same layout with **no** slug, which is what selects the `.home` branch instead of the `.stage` branch.
+- `src/styles/global.css` is the whole design system — no Tailwind, no per-component palette. Colours are custom properties on `:root` (`--accent`, `--gen`, `--eos`, `--muted`, `--line`, …); use them instead of literals. `.stage` is a flex column and `.viz` is `flex: 1 1 auto; min-height: 0`, which is why every visualization's root element is `class="viz"` — that's the contract that makes it fill the leftover height.
 
 ## Layout philosophy
 
@@ -39,19 +52,25 @@ Each chapter is a **stage**: one visualization filling the viewport, captions as
 
 Caption voice: short, plain, factual, the way you'd explain it to a friend at a whiteboard. No throat-clearing, no "let's explore".
 
-Chapters so far:
+Captions are HTML strings rendered with `{@html}`, so `<b>` and `<code>` work inside them. `.caption` is pinned to exactly three lines at 60ch so the canvas above never shifts when a caption wraps differently — a caption that overflows is silently clipped, so keep them inside that budget.
 
-1. `01-inference` / `AutoregressiveGen.svelte`: tokenize, forward, pick, append, until EOS. Ends on "what is being recomputed?"
-2. `02-attention` / `AttentionStep.svelte`: q, k, v per token, one token attending, then a decode step showing old k/v recomputed identically and old q unused. Ends on "why not keep them?"
-3. `03-kv-cache` / `KVCache.svelte`: the same grid plus a cache box. The first step fills it, decode steps compute one column and read the whole cache, q is shown as never read again, then the per-token cost. Ends on "two very different jobs" (prefill vs decode).
-4. `04-prefill-decode` / `PrefillDecode.svelte`: names the two step types, then one step on the GPU: weights streamed from HBM every step, n tokens riding that read, time bars (memory vs compute), the KV-cache read, a roofline-style chart with the ~300-token balance point, a chat timeline (time to first token vs per-token), and the idle-compute closer. Numbers are Llama-3-8B bf16 on one H100. Ends on "what if it weren't one person?" (batching).
-5. `05-batching` / `Batching.svelte`: B users share one weight read (stat tiles), the ~300 sweet spot, a ragged request timeline, static batching defined, the slots×steps grid for static vs continuous batching with prefill columns drawn wider and marked ⫽, and the closing "who goes first? a scheduler's job". Chunked prefill and the memory cap were deliberately moved out: chunked prefill belongs to 06 (scheduler), the memory cap to 07 (KV memory).
-6. `06-scheduler` / `Scheduler.svelte`: opens on chapter 5's stretched step; two lists (waiting, running) and one batch per step; the two shapes (show, don't tell) and why they get separate batches, with forward references to 08 (disaggregation) and 09 (CUDA graphs) computed from `chapters.ts`; prefill-first and its freeze; batched prefill; chunked not-mixed vs chunked mixed, with a step-type strip under every timeline; the three-policy comparison; the decision loop.
-7. `07-kv-memory` / `KVMemory.svelte`: room for KV cache with total/in-use/empty brackets; the cap as three bars (4k/8k/32k); naive reservation (waste, then fragmentation); animated paging: a newcomer's block splits into pages that fly into free slots and its page table appears; a request finishing returns its pages; the next newcomer takes them; the closing count (free ≥ needed) with retraction as the fallback. Prefix caching is its own chapter (08). Within-step animations use a `phase` state advanced by timeouts, replayed on every step change.
-8. `08-prefix-caching` / `PrefixCaching.svelte`: two requests with the same first 512 tokens paged twice, then B's table pointing at A's pages; why only a prefix can be shared; the radix tree; a newcomer matching 812 of 992; the chat case (each turn = previous turn + question); LRU eviction with pinned running paths; the waiting list under FCFS vs longest-prefix-match.
-9. `09-one-request` / `OneRequest.svelte`: launch the server; a JSON POST arrives; tokenization; why one process can't host the GPU loop (GIL timeline with idle gaps); three processes on three cores; ZMQ first as an animated queue between two processes (put and move on; take all at the top of a step), then why ZMQ rather than a pipe or HTTP; the request becoming a `Req` inside the scheduler; the request through the scheduler; streaming back as server-sent events; thousands of clients with real numbers (open connections vs running vs waiting, what one step carries, backpressure). Arrowheads are per-colour markers so a focused arrow changes colour, not just width. The scheduler's internals are chapter 10.
-10. `10-engine` / `Engine.svelte` ("The scheduler's loop"): inside the scheduler process. Left: inbox, waiting_queue, running_batch, outbox. Middle: the six-stage pipeline (recv_requests, get_next_batch_to_run, ScheduleBatch → tensors, ModelRunner.forward, Sampler, process_batch_result). Right: RadixCache, TokenToKVPool, GPU. One red `Req` pill travels through the stages with a CSS transform transition. Then overlap scheduling as two CPU/GPU timelines (plan t+1 starts right after launching t; results t processed during t+1), a step on the future-token placeholder that makes it possible, and a file-tree map of sglang/srt with chapter badges.
+## Chapters
 
+One line each; the MDX and the component are the real record. Slug ⇒ component.
+
+1. `01-inference` / `AutoregressiveGen` — tokenize, forward, pick, append, until EOS. Ends on "what is being recomputed?"
+2. `02-attention` / `AttentionStep` — q, k, v per token; a decode step recomputing old k/v identically and never using old q. Ends on "why not keep them?"
+3. `03-kv-cache` / `KVCache` — the cache box: fill it, then compute one column and read the whole cache. Ends on "two very different jobs".
+4. `04-prefill-decode` / `PrefillDecode` — weights streamed from HBM every step, time bars, a roofline with the ~300-token balance point, a chat timeline. Numbers are Llama-3-8B bf16 on one H100. Ends on batching.
+5. `05-batching` / `Batching` — B users share one weight read; static vs continuous batching as slots×steps. Chunked prefill and the memory cap were deliberately moved out (to 06 and 07). Ends on "who goes first?"
+6. `06-scheduler` / `Scheduler` — waiting and running lists, one batch per step; prefill-first and its freeze; chunked mixed vs not-mixed; the decision loop. Forward references to 08 and 09 are computed from `chapters.ts` rather than hardcoded.
+7. `07-kv-memory` / `KVMemory` — the memory cap, naive reservation and its waste, then paging and page tables. Prefix caching is its own chapter.
+8. `08-prefix-caching` / `PrefixCaching` — one copy of a shared prefix, the radix tree, partial matches, the chat case, LRU eviction with pinned running paths.
+9. `09-one-request` / `OneRequest` — HTTP POST to tokenizer to scheduler to GPU and back as SSE; why three processes (the GIL timeline) and why ZMQ. Arrowheads are per-colour markers, so a focused arrow changes colour and not just width.
+10. `10-engine` / `Engine` — inside the scheduler process: the six-stage pipeline, one `Req` pill travelling it, overlap scheduling as two CPU/GPU timelines, and a file-tree map of `sglang/srt` with chapter badges.
+11. `11-cuda-graphs` / `CudaGraphs` — a thousand launches versus one; capture per batch size, padding, why only decode is captured. Ends on what breaks capture (chapter 12).
+
+Chapters 12–26 are outlined in `src/chapters.ts` with `ready: false`.
 
 ## The visualization pattern
 
@@ -62,18 +81,21 @@ Every viz is a function of a step number. A component:
 3. Renders the current state as SVG. Svelte's `in:fly`/`transition:fade` handle the motion between states.
 4. Hands `step`/`total`/`caption` to `StepControls.svelte`, which owns prev/next/reset, play/pause (space), progress segments, and arrow keys. One viz per page, since the controls listen on the window. Pass `{...neighbors(slug)}` from the MDX so the first step offers the previous chapter and the last step offers the next one. Arrow keys only move within a chapter.
 
-You write states, never keyframes. To add a step, add an entry. `?step=N` in the URL opens a viz at step N (1-based) so prose can deep-link.
+You write states, never keyframes. To add a step, add an entry. `?step=N` in the URL opens a viz at step N (1-based) so prose can deep-link; every component applies it in an `$effect` after hydration, so the server HTML still matches.
+
+For motion *within* one step (07, 08, 09, 10, 11), the component keeps a `phase` state driven by an `$effect` that reads `step`, resets `phase = 0`, schedules a `setTimeout` per phase, and **returns a cleanup that clears them** — see `KVMemory.svelte`. Without that cleanup, stepping fast leaves phases from the old step firing over the new one.
 
 ## Checking steps without a browser
 
-`node scripts/shot.mjs <outDir> <waitMs> name=url ...` screenshots pages through headless chromium with a real wall-clock wait, so Svelte transitions finish. Append `|Space` or `|ArrowRight,ArrowRight` to a url to press keys after load; set `CLIP=x,y,w,h` to capture one region at 2x and `SCALE=2` for a full-page 2x. Plain `chromium --screenshot --virtual-time-budget` freezes delayed transitions mid-flight and is not trustworthy for this site.
+`node scripts/shot.mjs <outDir> <waitMs> name=url ...` screenshots pages through headless chromium with a real wall-clock wait, so Svelte transitions finish. Needs `chromium` on PATH and Node 22+ (it drives the DevTools protocol over the built-in WebSocket). Append `|Space` or `|ArrowRight,ArrowRight` to a url to press keys after load; set `CLIP=x,y,w,h` to capture one region at 2x and `SCALE=2` for a full-page 2x. Plain `chromium --screenshot --virtual-time-budget` freezes delayed transitions mid-flight and is not trustworthy for this site.
 
 ## Adding a chapter
 
-1. Add `src/pages/ch/NN-slug.mdx` with the frontmatter shown in `01-inference.mdx`.
-2. Flip `ready: true` for it in `src/chapters.ts`.
+1. Add the entry to `src/chapters.ts` with its `part` and `ready: true` (or flip `ready` if it's already outlined there).
+2. Add `src/pages/ch/NN-slug.mdx` with the frontmatter shown in `01-inference.mdx` — `layout` and `slug` only; title and hook come from `chapters.ts`.
 3. Build its viz by copying `AutoregressiveGen.svelte` and replacing the script and the SVG.
+4. Add the row to the README's chapter table.
 
 ## Deploy to GitHub Pages
 
-`astro.config.mjs` sets `site` to `https://wilsonzheng0327.github.io` and `base` to `/learning-sglang`; every internal link reads `import.meta.env.BASE_URL`, so the site works under that subpath. `.github/workflows/deploy.yml` builds with `withastro/action` on every push to `main` and publishes with `actions/deploy-pages`. One-time setup: the repo must be public (or on a paid plan) and Pages must be set to "GitHub Actions" as its source. Locally the dev and preview servers now serve at `http://localhost:4321/learning-sglang/`.
+`astro.config.mjs` sets `site` to `https://wilsonzheng0327.github.io` and `base` to `/learning-sglang`; every internal link reads `import.meta.env.BASE_URL`, so the site works under that subpath. `.github/workflows/deploy.yml` builds with `withastro/action` on every push to `main` and publishes with `actions/deploy-pages`. One-time setup: the repo must be public (or on a paid plan) and Pages must be set to "GitHub Actions" as its source.
