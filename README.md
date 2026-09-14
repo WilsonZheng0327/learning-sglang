@@ -2,6 +2,8 @@
 
 **Inference engines, from the problems up.**
 
+<img src="./public/learning-sglang.gif" alt="Stepping through a chapter of Learning SGLang" width="800">
+
 This repository is the source code for the website at **https://wilsonzheng0327.github.io/learning-sglang/**, an illustrated, step-by-step guide to how an LLM inference engine works, using SGLang as the running example. Each chapter is one animated visualization you click through. The captions are the narration; there is almost no other text. Every chapter ends on a question, and the next chapter is the answer, so by the end an engine's scheduler, memory manager, prefix cache, and process layout all read as the obvious response to a chain of "so what do we do about that?"
 
 Numbers throughout are for Llama-3-8B in bf16 on a single H100 unless a chapter says otherwise.
