@@ -4,7 +4,7 @@
   import { chapters, type NavLink } from '../chapters';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
-  const CH_CUDA = chNum('11-cuda-graphs'), CH_DISAGG = chNum('13-disaggregation');
+  const CH_CUDA = chNum('11-cuda-graphs'), CH_DISAGG = chNum('21-disaggregation');
   const W_GB = 16, BW = 3.35;
   const tStep = W_GB / BW;
   const fmt = (ms: number) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms';
@@ -154,7 +154,7 @@
             <rect x={R.x + 10 + (i % 12) * 14} y={206 + Math.floor(i / 12) * 14} width="11" height="11" rx="2" fill={mine ? 'var(--accent)' : own ? '#0891b2' : 'white'} stroke={own || mine ? 'none' : 'var(--line)'} opacity={own ? 0.5 : 1} />
           {/each}
           {#if v === 2}<text x={R.x + 10} y="246" class="tag" fill="#0891b2" in:fade>room? 13 free ≥ 2 needed ✓</text>{/if}
-          {#if v === 3}<text x={R.x + 10} y="246" class="tag" fill="var(--accent)" in:fade>2 pages allocated · one per uncached token</text>{/if}
+          {#if v === 3}<text x={R.x + 10} y="246" class="tag" fill="var(--accent)" in:fade>2 pages allocated</text>{/if}
           {#if v === 4}<text x={R.x + 10} y="246" class="tag" fill="#0891b2" in:fade>read all pages · write 2 new</text>{/if}
 
           <rect x={R.x} y="264" width={R.w} height="114" rx="8" fill="#fbfaf7" stroke={lit('gpu') ? 'var(--gen)' : 'var(--line)'} stroke-width={lit('gpu') ? 2 : 1} />

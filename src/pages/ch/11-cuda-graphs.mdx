@@ -1,0 +1,17 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 11-cuda-graphs
+---
+import CudaGraphs from '../../components/CudaGraphs.svelte';
+import { neighbors } from '../../chapters';
+
+<CudaGraphs client:load {...neighbors('11-cuda-graphs')} />
+
+<details>
+<summary>The launch arithmetic, once</summary>
+
+An eager decode step costs $\max(N_{\text{kernels}} \cdot t_{\text{launch}},\; t_{\text{gpu}}(B))$. With about a thousand launches at roughly 9 µs each, the CPU side is near 9 ms, above the 4.8 ms of GPU work for an 8B model at small batch, so the step is launch-bound until $t_{\text{gpu}}(B)$ grows past it, around $B \approx 550$. A CUDA graph replaces the thousand launches with one, so the step is $t_{\text{gpu}}(B)$ at every batch size.
+
+The graph fixes shapes and addresses, so SGLang's `CudaGraphRunner` captures one graph per batch size in `--cuda-graph-bs` (default up to `--cuda-graph-max-bs`), pads real batches up to the nearest captured size, and keeps static input and output buffers that the scheduler fills before each `replay()`. Only decode is captured: prefill's ragged shapes change every batch. Anything data-dependent inside the step, MoE routing, speculative verification, host syncs, breaks capture; that is the next chapter.
+
+</details>

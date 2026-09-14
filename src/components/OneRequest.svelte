@@ -4,7 +4,7 @@
   import { chapters, type NavLink } from '../chapters';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
-  const CH_ENGINE = chNum('10-engine'), CH_TP = chNum('12-tensor-parallel'), CH_DISAGG = chNum('13-disaggregation');
+  const CH_ENGINE = chNum('10-engine'), CH_TP = chNum('17-tensor-parallel'), CH_DISAGG = chNum('21-disaggregation');
 
   const W_GB = 16, HBM_GB = 80, BW = 3.35, KB_TOK = 128;
   const tStep = W_GB / BW;                                  // ≈ 4.8 ms decode step, from chapter 4

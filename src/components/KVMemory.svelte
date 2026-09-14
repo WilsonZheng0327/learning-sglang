@@ -4,7 +4,7 @@
   import { chapters, type NavLink } from '../chapters';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
-  const CH_PREFIX = chNum('08-prefix-caching'), CH_DISAGG = chNum('13-disaggregation');
+  const CH_PREFIX = chNum('08-prefix-caching'), CH_DISAGG = chNum('21-disaggregation');
 
   // ---- Numbers, same as before: Llama-3-8B bf16 on one H100 ------------------------------------
   const W_GB = 16, HBM_GB = 80, KB_TOK = 128, BW = 3.35, FLOPS = 989, GFLOP = 16;

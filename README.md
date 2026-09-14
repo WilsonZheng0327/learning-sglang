@@ -1,64 +1,72 @@
 # Learning SGLang
 
-A motivation-driven, visualization-heavy walkthrough of LLM inference, ending at why engines like SGLang exist.
+**Inference engines, from the problems up.**
 
-## Run
+This repository is the source code for the website at **https://wilsonzheng0327.github.io/learning-sglang/**, an illustrated, step-by-step guide to how an LLM inference engine works, using SGLang as the running example. Each chapter is one animated visualization you click through. The captions are the narration; there is almost no other text. Every chapter ends on a question, and the next chapter is the answer, so by the end an engine's scheduler, memory manager, prefix cache, and process layout all read as the obvious response to a chain of "so what do we do about that?"
+
+Numbers throughout are for Llama-3-8B in bf16 on a single H100 unless a chapter says otherwise.
+
+## Chapters
+
+### The loop
+
+Why every piece of the engine exists.
+
+| # | Chapter | Hook | Status |
+|---|---|---|---|
+| 01 | [Bare-minimum inference](https://wilsonzheng0327.github.io/learning-sglang/ch/01-inference/) | One function, called in a loop. | live |
+| 02 | [Attention, per decode step](https://wilsonzheng0327.github.io/learning-sglang/ch/02-attention/) | What a new token needs from the past. | live |
+| 03 | [KV cache](https://wilsonzheng0327.github.io/learning-sglang/ch/03-kv-cache/) | Keep k and v. Drop q. | live |
+| 04 | [Prefill vs decode](https://wilsonzheng0327.github.io/learning-sglang/ch/04-prefill-decode/) | Two very different workloads. | live |
+| 05 | [Batching & continuous batching](https://wilsonzheng0327.github.io/learning-sglang/ch/05-batching/) | Sharing a GPU between users. | live |
+| 06 | [The scheduler](https://wilsonzheng0327.github.io/learning-sglang/ch/06-scheduler/) | Two lists, one GPU, one choice per step. | live |
+| 07 | [KV memory](https://wilsonzheng0327.github.io/learning-sglang/ch/07-kv-memory/) | Pages, and the memory cap. | live |
+| 08 | [Prefix caching](https://wilsonzheng0327.github.io/learning-sglang/ch/08-prefix-caching/) | Same beginning, one copy. | live |
+| 09 | [One request, end to end](https://wilsonzheng0327.github.io/learning-sglang/ch/09-one-request/) | From an HTTP POST to the GPU and back. | live |
+| 10 | [The scheduler's loop](https://wilsonzheng0327.github.io/learning-sglang/ch/10-engine/) | One Req through one step. | live |
+
+### Making one GPU fast
+
+The loop is correct; now the step is slow for reasons that have nothing to do with the model.
+
+| # | Chapter | Hook | Status |
+|---|---|---|---|
+| 11 | [CUDA graphs](https://wilsonzheng0327.github.io/learning-sglang/ch/11-cuda-graphs/) | Launching a thousand kernels as one. | live |
+| 12 | Piecewise graphs & torch.compile | When the graph has to break. | planned |
+| 13 | Attention backends | Why there are five kernels for one equation. | planned |
+| 14 | Speculative decoding | Guess several tokens, verify in one step. | planned |
+| 15 | Quantization | Shrinking the read every step pays for. | planned |
+| 16 | Two-batch overlap | Hiding communication behind compute. | planned |
+
+### More than one GPU
+
+The model, the cache, or the traffic no longer fits on one card.
+
+| # | Chapter | Hook | Status |
+|---|---|---|---|
+| 17 | Tensor parallelism | A model bigger than one GPU. | planned |
+| 18 | Pipeline & expert parallelism | Splitting by layer, and by expert. | planned |
+| 19 | Data-parallel attention | Replicate the attention side, share the rest. | planned |
+| 20 | Hierarchical KV cache | When 64 GB is not enough. | planned |
+| 21 | Prefill-decode disaggregation | Two clocks, two machines. | planned |
+| 22 | The router | Many engines, one front door. | planned |
+
+### Beyond text · SGLang Omni
+
+Speech and vision break the assumptions of Part I, one at a time.
+
+| # | Chapter | Hook | Status |
+|---|---|---|---|
+| 23 | Multimodal inputs | A stage in front of the loop. | planned |
+| 24 | Multi-stage inference | Thinker, talker, and the pipe between them. | planned |
+| 25 | Streaming audio decode | Output with a real-time deadline. | planned |
+| 26 | Full duplex | Listening while speaking. | planned |
+
+## Running locally
 
 ```sh
 npm install
-npm run dev        # http://localhost:4321
-npm run build      # static site in dist/
+npm run dev     # http://localhost:4321/learning-sglang/
 ```
 
-## Stack
-
-- **Astro + MDX**: each chapter is `src/pages/ch/NN-name.mdx`. Prose is markdown, visualizations are components dropped inline.
-- **Svelte 5** for the interactive components (`src/components/`). Transitions and `$derived` state do the animation work.
-- **Fonts** are self-hosted via `@fontsource-variable/inter` and `@fontsource-variable/jetbrains-mono`, imported in the layout.
-- **KaTeX** for math via remark-math/rehype-katex. `katex` in package.json is pinned to the same version rehype-katex bundles; a mismatch breaks subscripts because the CSS class scheme changed in 0.18.
-- Sidebar order and "coming soon" flags live in `src/chapters.ts`.
-
-## Layout philosophy
-
-Each chapter is a **stage**: one visualization filling the viewport, captions as the only narration, no scrolling. Prose is reserved for what the picture cannot say, and goes in a collapsed `<details>` under the stage. Every chapter's last step should end on the question the next chapter answers.
-
-Caption voice: short, plain, factual, the way you'd explain it to a friend at a whiteboard. No throat-clearing, no "let's explore".
-
-Chapters so far:
-
-1. `01-inference` / `AutoregressiveGen.svelte`: tokenize, forward, pick, append, until EOS. Ends on "what is being recomputed?"
-2. `02-attention` / `AttentionStep.svelte`: q, k, v per token, one token attending, then a decode step showing old k/v recomputed identically and old q unused. Ends on "why not keep them?"
-3. `03-kv-cache` / `KVCache.svelte`: the same grid plus a cache box. The first step fills it, decode steps compute one column and read the whole cache, q is shown as never read again, then the per-token cost. Ends on "two very different jobs" (prefill vs decode).
-4. `04-prefill-decode` / `PrefillDecode.svelte`: names the two step types, then one step on the GPU: weights streamed from HBM every step, n tokens riding that read, time bars (memory vs compute), the KV-cache read, a roofline-style chart with the ~300-token balance point, a chat timeline (time to first token vs per-token), and the idle-compute closer. Numbers are Llama-3-8B bf16 on one H100. Ends on "what if it weren't one person?" (batching).
-5. `05-batching` / `Batching.svelte`: B users share one weight read (stat tiles), the ~300 sweet spot, a ragged request timeline, static batching defined, the slots×steps grid for static vs continuous batching with prefill columns drawn wider and marked ⫽, and the closing "who goes first? a scheduler's job". Chunked prefill and the memory cap were deliberately moved out: chunked prefill belongs to 06 (scheduler), the memory cap to 07 (KV memory).
-6. `06-scheduler` / `Scheduler.svelte`: opens on chapter 5's stretched step; two lists (waiting, running) and one batch per step; the two shapes (show, don't tell) and why they get separate batches, with forward references to 08 (disaggregation) and 09 (CUDA graphs) computed from `chapters.ts`; prefill-first and its freeze; batched prefill; chunked not-mixed vs chunked mixed, with a step-type strip under every timeline; the three-policy comparison; the decision loop.
-7. `07-kv-memory` / `KVMemory.svelte`: room for KV cache with total/in-use/empty brackets; the cap as three bars (4k/8k/32k); naive reservation (waste, then fragmentation); animated paging: a newcomer's block splits into pages that fly into free slots and its page table appears; a request finishing returns its pages; the next newcomer takes them; the closing count (free ≥ needed) with retraction as the fallback. Prefix caching is its own chapter (08). Within-step animations use a `phase` state advanced by timeouts, replayed on every step change.
-8. `08-prefix-caching` / `PrefixCaching.svelte`: two requests with the same first 512 tokens paged twice, then B's table pointing at A's pages; why only a prefix can be shared; the radix tree; a newcomer matching 812 of 992; the chat case (each turn = previous turn + question); LRU eviction with pinned running paths; the waiting list under FCFS vs longest-prefix-match.
-9. `09-one-request` / `OneRequest.svelte`: launch the server; a JSON POST arrives; tokenization; why one process can't host the GPU loop (GIL timeline with idle gaps); three processes on three cores; ZMQ first as an animated queue between two processes (put and move on; take all at the top of a step), then why ZMQ rather than a pipe or HTTP; the request becoming a `Req` inside the scheduler; the request through the scheduler; streaming back as server-sent events; thousands of clients with real numbers (open connections vs running vs waiting, what one step carries, backpressure). Arrowheads are per-colour markers so a focused arrow changes colour, not just width. The scheduler's internals are chapter 10.
-10. `10-engine` / `Engine.svelte` ("The scheduler's loop"): inside the scheduler process. Left: inbox, waiting_queue, running_batch, outbox. Middle: the six-stage pipeline (recv_requests, get_next_batch_to_run, ScheduleBatch → tensors, ModelRunner.forward, Sampler, process_batch_result). Right: RadixCache, TokenToKVPool, GPU. One red `Req` pill travels through the stages with a CSS transform transition. Then overlap scheduling as two CPU/GPU timelines (plan t+1 starts right after launching t; results t processed during t+1), a step on the future-token placeholder that makes it possible, and a file-tree map of sglang/srt with chapter badges.
-
-
-## The visualization pattern
-
-Every viz is a function of a step number. A component:
-
-1. Declares a small **script** (data for each round), e.g. the prompt tokens and per-round distributions in `AutoregressiveGen.svelte`.
-2. Expands it into a flat `steps[]` array where each entry is a full **state**: what is on screen plus a caption.
-3. Renders the current state as SVG. Svelte's `in:fly`/`transition:fade` handle the motion between states.
-4. Hands `step`/`total`/`caption` to `StepControls.svelte`, which owns prev/next/reset, play/pause (space), progress segments, and arrow keys. One viz per page, since the controls listen on the window. Pass `{...neighbors(slug)}` from the MDX so the first step offers the previous chapter and the last step offers the next one. Arrow keys only move within a chapter.
-
-You write states, never keyframes. To add a step, add an entry. `?step=N` in the URL opens a viz at step N (1-based) so prose can deep-link.
-
-## Checking steps without a browser
-
-`node scripts/shot.mjs <outDir> <waitMs> name=url ...` screenshots pages through headless chromium with a real wall-clock wait, so Svelte transitions finish. Append `|Space` or `|ArrowRight,ArrowRight` to a url to press keys after load; set `CLIP=x,y,w,h` to capture one region at 2x and `SCALE=2` for a full-page 2x. Plain `chromium --screenshot --virtual-time-budget` freezes delayed transitions mid-flight and is not trustworthy for this site.
-
-## Adding a chapter
-
-1. Add `src/pages/ch/NN-slug.mdx` with the frontmatter shown in `01-inference.mdx`.
-2. Flip `ready: true` for it in `src/chapters.ts`.
-3. Build its viz by copying `AutoregressiveGen.svelte` and replacing the script and the SVG.
-
-## Deploy to GitHub Pages
-
-`astro.config.mjs` sets `site` to `https://wilsonzheng0327.github.io` and `base` to `/learning-sglang`; every internal link reads `import.meta.env.BASE_URL`, so the site works under that subpath. `.github/workflows/deploy.yml` builds with `withastro/action` on every push to `main` and publishes with `actions/deploy-pages`. One-time setup: the repo must be public (or on a paid plan) and Pages must be set to "GitHub Actions" as its source. Locally the dev and preview servers now serve at `http://localhost:4321/learning-sglang/`.
+Built with Astro, Svelte, and KaTeX. Written and drawn by [Wilson Zheng](https://github.com/WilsonZheng0327).
