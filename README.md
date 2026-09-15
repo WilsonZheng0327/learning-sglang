@@ -34,11 +34,12 @@ The loop is correct; now the step is slow for reasons that have nothing to do wi
 | # | Chapter | Hook | Status |
 |---|---|---|---|
 | 11 | [CUDA graphs](https://wilsonzheng0327.github.io/learning-sglang/ch/11-cuda-graphs/) | Launching a thousand kernels as one. | live |
-| 12 | Piecewise graphs & torch.compile | When the graph has to break. | planned |
-| 13 | Attention backends | Why there are five kernels for one equation. | planned |
-| 14 | Speculative decoding | Guess several tokens, verify in one step. | planned |
-| 15 | Quantization | Shrinking the read every step pays for. | planned |
-| 16 | Two-batch overlap | Hiding communication behind compute. | planned |
+| 12 | Piecewise CUDA graphs | When the graph has to break. | planned |
+| 13 | torch.compile | Fusing the kernels you were about to launch. | planned |
+| 14 | Attention backends | Why there are five kernels for one equation. | planned |
+| 15 | Speculative decoding | Guess several tokens, verify in one step. | planned |
+| 16 | Quantization | Shrinking the read every step pays for. | planned |
+| 17 | Two-batch overlap | Hiding communication behind compute. | planned |
 
 ### More than one GPU
 
@@ -46,12 +47,12 @@ The model, the cache, or the traffic no longer fits on one card.
 
 | # | Chapter | Hook | Status |
 |---|---|---|---|
-| 17 | Tensor parallelism | A model bigger than one GPU. | planned |
-| 18 | Pipeline & expert parallelism | Splitting by layer, and by expert. | planned |
-| 19 | Data-parallel attention | Replicate the attention side, share the rest. | planned |
-| 20 | Hierarchical KV cache | When 64 GB is not enough. | planned |
-| 21 | Prefill-decode disaggregation | Two clocks, two machines. | planned |
-| 22 | The router | Many engines, one front door. | planned |
+| 18 | Tensor parallelism | A model bigger than one GPU. | planned |
+| 19 | Pipeline & expert parallelism | Splitting by layer, and by expert. | planned |
+| 20 | Data-parallel attention | Replicate the attention side, share the rest. | planned |
+| 21 | Hierarchical KV cache | When 64 GB is not enough. | planned |
+| 22 | Prefill-decode disaggregation | Two clocks, two machines. | planned |
+| 23 | The router | Many engines, one front door. | planned |
 
 ### Beyond text · SGLang Omni
 
@@ -59,10 +60,10 @@ Speech and vision break the assumptions of Part I, one at a time.
 
 | # | Chapter | Hook | Status |
 |---|---|---|---|
-| 23 | Multimodal inputs | A stage in front of the loop. | planned |
-| 24 | Multi-stage inference | Thinker, talker, and the pipe between them. | planned |
-| 25 | Streaming audio decode | Output with a real-time deadline. | planned |
-| 26 | Full duplex | Listening while speaking. | planned |
+| 24 | Multimodal inputs | A stage in front of the loop. | planned |
+| 25 | Multi-stage inference | Thinker, talker, and the pipe between them. | planned |
+| 26 | Streaming audio decode | Output with a real-time deadline. | planned |
+| 27 | Full duplex | Listening while speaking. | planned |
 
 ## Running locally
 

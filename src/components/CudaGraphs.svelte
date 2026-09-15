@@ -4,7 +4,7 @@
   import { chapters, type NavLink } from '../chapters';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
-  const CH_NEXT = chNum('12-piecewise-compile');
+  const CH_NEXT = chNum('12-piecewise-cuda-graph');
 
   // ---- Numbers: Llama-3-8B bf16 on one H100, as in chapters 4 to 10 ----------------------------------
   const W_GB = 16, BW = 3.35;
@@ -34,7 +34,7 @@
     { scene: 'pad', caption: `So a batch of 37 is padded up to the next rung, 48. The 11 dummy rows go through the whole step and their logits are thrown away, which still costs far less than a thousand launches.` },
     { scene: 'shapes', caption: `Only decode gets graphs: its batches are [B, 1], so the ladder covers them. Prefill is ragged, different every batch, and runs eagerly, which is fine because prefill is compute-bound anyway. Chapter 6's two shapes, again.` },
     { scene: 'buffers', caption: `The addresses are frozen, so nothing can be passed in as an argument. Instead each request's sampled token is written back into its own slot in the same buffer, and the same recording is replayed. Chapter 1's loop, in place.` },
-    { scene: 'closing', caption: `What a graph can't hold: anything data-dependent. MoE routing, speculative verification, attention plans that change shape, a .item() that syncs with the CPU. Cut the graph there and compile the rest: chapter ${CH_NEXT}.` },
+    { scene: 'closing', caption: `What a graph can't hold: anything data-dependent. MoE routing, speculative verification, attention plans that change shape, a .item() that syncs with the CPU. Cut the graph there and replay the pieces: chapter ${CH_NEXT}.` },
   ];
 
   let step = $state(0);
