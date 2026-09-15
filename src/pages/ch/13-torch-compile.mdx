@@ -1,0 +1,19 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 13-torch-compile
+---
+import TorchCompile from '../../components/TorchCompile.svelte';
+import { neighbors } from '../../chapters';
+
+<TorchCompile client:load {...neighbors('13-torch-compile')} />
+
+<details>
+<summary>The two halves of one tool, and what each is worth</summary>
+
+`torch.compile` is a front end and a back end. **Dynamo** is the front end: a bytecode interpreter that traces Python into a straight-line FX graph of tensor operations, breaking the graph wherever it meets something it cannot trace. That is the half chapter 12 used — the graph is what you split at the seams. **Inductor** is the default back end: it fuses pointwise and reduction chains into generated Triton kernels, auto-tunes their block sizes, and for matmuls *selects* a backend (cuBLAS, a Triton template, CUTLASS) with prologue and epilogue fusion around it. Matmuls are not generated from scratch.
+
+The fusion arithmetic, for Llama-3-8B in bf16: SiLU's output is $14336 \times 2 = 28$ KB per token per layer, written to HBM and read straight back by the multiply. Fusing removes both trips, $56$ KB per token per layer, $1.8$ MB per token across 32 layers. At batch 256 that is roughly 470 MB against the step's 16 GB weight read — about 3%, or 140 µs of 4.8 ms. Autotuning is worth more at small batch, where a decode matmul is a sliver against a square-tuned library default; SGLang describes `--enable-torch-compile` as accelerating "small models on small batch sizes", and reported gains sit around 5–15% below batch 16. vLLM reports up to 8% from fused SiLU+quantize on an FP8 405B model, which is the same trick paying better once there is a quantise step to absorb.
+
+In SGLang the standalone `--enable-torch-compile` path is flagged as out of maintenance; the live path is the piecewise one from chapter 12, where `--cuda-graph-tc-compiler inductor` turns the back end on for each captured piece. `max-autotune` benchmarks every candidate for every shape, so compilation costs minutes at startup; `--torch-compile-max-bs` caps how many shapes pay it, and the Inductor cache (`TORCHINDUCTOR_CACHE_DIR`) can be shipped to other machines.
+
+</details>

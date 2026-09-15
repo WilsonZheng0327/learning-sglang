@@ -23,7 +23,7 @@ export const chapters: Chapter[] = [
 
   { part: 'fast', slug: '11-cuda-graphs', title: 'CUDA graphs', hook: 'Launching a thousand kernels as one.', ready: true },
   { part: 'fast', slug: '12-piecewise-cuda-graph', title: 'Piecewise CUDA graphs', hook: 'When the graph has to break.', ready: true },
-  { part: 'fast', slug: '13-torch-compile', title: 'torch.compile', hook: 'Fusing the kernels you were about to launch.', ready: false },
+  { part: 'fast', slug: '13-torch-compile', title: 'torch.compile', hook: 'Fusing the kernels you were about to launch.', ready: true },
   { part: 'fast', slug: '14-attention-backends', title: 'Attention backends', hook: 'Why there are five kernels for one equation.', ready: false },
   { part: 'fast', slug: '15-speculative-decoding', title: 'Speculative decoding', hook: 'Guess several tokens, verify in one step.', ready: false },
   { part: 'fast', slug: '16-quantization', title: 'Quantization', hook: 'Shrinking the read every step pays for.', ready: false },
