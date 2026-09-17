@@ -62,7 +62,7 @@
     { scene: 'ladder', caption: `The rungs are token counts now, and the gap grows with the count: 4 apart at the bottom, 256 at the top. Every band holds it near a sixteenth of the batch, so what padding wastes is a share of the work rather than a fixed number of tokens.` },
     { scene: 'seams', caption: `Attention isn't the only seam. All-reduce waits on other GPUs (chapter ${CH_TP}); MoE dispatch sends a data-dependent number of tokens to each expert. The rule is the same: if its work depends on the data rather than the token count, cut there.` },
     { scene: 'tracer', caption: `Nobody writes ${PIECES} capture regions by hand. <b>torch.compile</b> traces the model into a graph of operations; you name the ops to split on, it cuts there and hands back the subgraphs. Each one gets the chapter 11 treatment.` },
-    { scene: 'closing', caption: `And the tracer saw every operation, not just the seams. SGLang's default asks it to trace and split and nothing else. There's another setting, and it doesn't just cut the graph up — it rewrites what's between the cuts. Chapter ${CH_NEXT}.` },
+    { scene: 'closing', caption: `The matmuls have to touch memory: that's where the weights are. The two in the middle touch it only because of how they were called — and the tracer handed them back untouched. Chapter ${CH_NEXT}.` },
   ];
 
   let step = $state(0);
@@ -84,9 +84,15 @@
 
   // the flat op list the tracer hands back, laid out on its own widths
   const tracedOps = (() => {
-    const names = ['norm', 'qkv', 'rope', '✂ attn', 'o', 'add', 'norm', 'gate·up', 'silu', 'down', 'add', '✂ attn', '…'];
+    const names = ['norm', 'qkv', 'rope', '*attn', 'o', 'add', 'norm', 'gate·up', 'silu', 'down', 'add', '*attn', '…'];
     let x = 40;
-    return names.map((n) => { const o = { n, x, seam: n.startsWith('✂') }; x += n.length * 6.2 + 16; return o; });
+    return names.map((raw) => {
+      const seam = raw.startsWith('*');
+      const n = seam ? raw.slice(1) : raw;
+      const o = { n, x, seam };
+      x += n.length * 6.2 + (seam ? 38 : 18);   // seams need room for the scissors
+      return o;
+    });
   })();
 
   // roofline plot
@@ -483,7 +489,12 @@
             <text x="22" y="226" class="rowlabel">what the tracer hands back</text>
             <rect x="22" y="238" width="668" height="46" rx="8" fill="white" stroke="var(--line)" />
             {#each tracedOps as op, i}
-              <text x={op.x} y={266} class={op.seam ? 'mono strong' : 'mono muted'} fill={op.seam ? 'var(--eos)' : undefined} in:fade={{ delay: 1400 + i * 60 }}>{op.n}</text>
+              {#if op.seam}
+                <text x={op.x} y="270" class="scissors" fill="var(--eos)" in:fade={{ delay: 1400 + i * 60 }}>✂</text>
+                <text x={op.x + 20} y="266" class="mono strong" fill="var(--eos)" in:fade={{ delay: 1400 + i * 60 }}>{op.n}</text>
+              {:else}
+                <text x={op.x} y="266" class="mono muted" in:fade={{ delay: 1400 + i * 60 }}>{op.n}</text>
+              {/if}
             {/each}
             <text x="22" y="322" class="legend">a flat list of operations, in order, with the seams marked — <tspan class="strong">the graph was always there; nobody had written it down</tspan></text>
             <text x="22" y="344" class="legend muted">SGLang wraps the model in <tspan class="mono">torch.compile</tspan> for exactly this, then replaces each subgraph with a replayable piece</text>
@@ -493,37 +504,47 @@
 
       <!-- 12: the tracer has a second half -->
       {#if cur.scene === 'closing'}
-        {@const chain = ['norm', 'gate·up', 'silu', 'down']}
+        {@const chain = [{ n: 'gate·up', mm: true }, { n: 'silu', mm: false }, { n: 'mul', mm: false }, { n: 'down', mm: true }]}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="40" class="rowlabel">one piece, up close · the token-wise chain the tracer handed back unchanged</text>
+          <text x="16" y="36" class="rowlabel">one piece, up close · the token-wise chain the tracer handed back unchanged</text>
 
-          <rect x="40" y="216" width="650" height="34" rx="8" fill="#f4f2ec" stroke="var(--line)" />
-          <text x="56" y="238" class="boxtitle">HBM · {BW} TB/s</text>
+          <!-- the CPU's whole involvement, for scale -->
+          <rect x="16" y="94" width="68" height="52" rx="8" fill="white" stroke="var(--faint)" stroke-dasharray="3 3" />
+          <text x="50" y="116" text-anchor="middle" class="boxtitle">CPU</text>
+          <text x="50" y="134" text-anchor="middle" class="tag">asleep</text>
+          <path d="M 88 120 H 104" fill="none" stroke="var(--faint)" stroke-width="1.2" marker-end="url(#pw-arrow)" />
+
+          <rect x="108" y="48" width="584" height="214" rx="12" fill="#fbfaf7" stroke="var(--gen)" />
+          <text x="122" y="68" class="boxtitle">GPU</text>
+          <text x="404" y="72" text-anchor="middle" class="tag">the arithmetic happens up here, in registers on the SM</text>
 
           {#each chain as k, i}
-            {@const cx = 150 + i * 150}
+            {@const cx = 175 + i * 150}
             <g in:fade={{ delay: i * 200, duration: 220 }}>
-              <path d="M {cx - 34} 216 V 142" fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#pw-arrow-hot)" />
-              <rect x={cx - 58} y="96" width="116" height="42" rx="8" fill="var(--accent)" opacity="0.9" />
-              <text x={cx} y="122" text-anchor="middle" class="kname">{k}</text>
-              <path d="M {cx + 34} 142 V 212" fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#pw-arrow-hot)" />
+              <path d="M {cx - 30} 222 V 132" fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#pw-arrow-hot)" />
+              <rect x={cx - 55} y="84" width="110" height="42" rx="8" fill={k.mm ? 'var(--fg)' : 'var(--accent)'} opacity={k.mm ? 0.75 : 0.9} />
+              <text x={cx} y="110" text-anchor="middle" class="kname">{k.n}</text>
+              <path d="M {cx + 30} 132 V 218" fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#pw-arrow-hot)" />
               {#if i === 0}
-                <text x={cx - 40} y="182" text-anchor="end" class="tag">read</text>
-                <text x={cx + 40} y="182" class="tag">write</text>
+                <text x={cx - 36} y="176" text-anchor="end" class="tag">read</text>
+                <text x={cx + 36} y="176" class="tag">write</text>
               {/if}
             </g>
           {/each}
-          <text x="16" y="276" class="legend" in:fade={{ delay: 900 }}><tspan class="strong">{chain.length} kernels, {chain.length * 2} trips through memory</tspan> — nothing stays on the chip between them</text>
 
-          <g in:fade={{ delay: 1200, duration: 300 }}>
-            <circle cx="36" cy="310" r="4" fill="var(--accent)" />
-            <text x="50" y="314" class="mono strong">--cuda-graph-tc-compiler eager</text>
-            <text x="286" y="314" class="tag">the default · trace and cut, hand the pieces back as they are</text>
-            <circle cx="36" cy="336" r="4" fill="var(--gen)" />
-            <text x="50" y="340" class="mono strong">--cuda-graph-tc-compiler inductor</text>
-            <text x="286" y="340" class="tag">trace, cut, then look <tspan class="strong">inside</tspan> each piece</text>
+          <g in:fade={{ delay: 1000 }}>
+            <rect x="262" y="78" width="276" height="54" rx="10" fill="none" stroke="var(--eos)" stroke-dasharray="4 3" />
           </g>
-          <text x="16" y="378" class="legend" in:fade={{ delay: 1500 }}><tspan class="strong">So why is each link in that chain a separate kernel at all?</tspan></text>
+          <rect x="120" y="222" width="560" height="32" rx="8" fill="#f4f2ec" stroke="var(--line)" />
+          <text x="136" y="242" class="boxtitle">HBM</text>
+          <text x="184" y="242" class="tag">the GPU's own 80 GB — the weights and the KV cache are in here too</text>
+
+          <g in:fade={{ delay: 900 }}>
+            <text x="16" y="290" class="legend"><tspan class="strong">{chain.length} kernels, {chain.length * 2} trips</tspan> — and every arrow is inside the GPU. The CPU sent one replay and went back to sleep.</text>
+            <text x="16" y="312" class="legend muted">a kernel's registers are gone the moment it ends, so whatever the next one needs has to go out to memory and come back</text>
+            <text x="16" y="334" class="legend muted">×{LAYERS} layers, and again for every token in the batch</text>
+          </g>
+          <text x="16" y="374" class="legend" in:fade={{ delay: 1400 }}>Nothing but <tspan class="mono strong">mul</tspan> ever reads what <tspan class="mono strong">silu</tspan> wrote, and it wants it immediately. <tspan class="strong">So why are they two kernels?</tspan></text>
         </g>
       {/if}
 
@@ -544,6 +565,7 @@
   .mono.strong { font-weight: 600; }
   .tag { font-size: 10px; fill: var(--muted); }
   .legendkey { font-size: 8.5px; fill: var(--muted); }
+  .scissors { font-size: 17px; }
   .tag.strong, .tag .strong, .mono .strong { fill: var(--fg); font-weight: 600; }
   .steplabel { font-size: 10px; fill: white; font-weight: 600; }
   .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }

@@ -14,6 +14,8 @@ A prefill step of $n$ tokens costs the GPU $\max(t_{\text{mem}},\; n \cdot t_{\t
 
 Piecewise replaces those launches with one replay per piece plus eager attention: $33 \times 10\,\mu s + 32 \times 3 \times 9\,\mu s \approx 1.2$ ms. Sixty times what a single whole-model graph costs, and irrelevant, because the target was never zero — it was 4.8 ms.
 
+A kernel's registers and shared memory do not survive the kernel, and two kernels are two independent launches with no state in common, so a value passing from one to the next has to be written to global memory and read back. That memory is HBM — the GPU's own DRAM, the same place the weights and the KV cache live; the CPU is not involved at any point. (At small sizes some of those reads are caught by the 50 MB L2 rather than reaching HBM, but a prefill-sized activation — `[2048, 14336]` in bf16 is 58 MB — is well past that.)
+
 SGLang builds this with `torch.compile`: `PiecewiseCudaGraphRunner` wraps the model to trigger Dynamo tracing, splits the FX graph at the ops named as split points, and replaces each capturable subgraph with a backend that captures and replays it per rung. `--cuda-graph-tc-compiler` picks what the compiler does with the pieces — `eager` (the default) traces and splits only; `inductor` also generates kernels, which is chapter 13. The prefill rung schedule (`--cuda-graph-bs-prefill`) defaults to 4–32 by 4, 48–256 by 16, 288–512 by 32, 576–1024 by 64, 1280–4096 by 256, then by 512.
 
 </details>

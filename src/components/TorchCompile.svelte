@@ -17,11 +17,16 @@
   const B_EX = 256;
   const savedMB = savedPerTok * B_EX;                       // 470 MB at batch 256
   const savedMs = savedMB / 1e3 / BW;                       // and what that is in time
-  const pctTraffic = (savedMB / 1e3 / W_GB) * 100;
+  const actMB = savedPerTok * B_EX * 3;                     // ~1.4 GB of activations all told
+  const totalMB = W_GB * 1e3 + actMB;                       // what one decode step moves
+  const pctTraffic = (savedMB / totalMB) * 100;
   const kb = (b: number) => `${Math.round(b / 1024)} KB`;
+  const launchMsEager = 9;                                  // chapter 11's eager step: the launches, not the GPU
+  const launchSaved = launchMsEager - tMem;                 // 4.2 ms, what chapters 11 and 12 took off
+  const ratio = Math.round(launchSaved / savedMs);          // and how much bigger that was than this
   const fmtMs = (ms: number) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms';
 
-  type Scene = 'chain' | 'waste' | 'why' | 'fuse' | 'triton' | 'whatfuses' | 'autotune' | 'worth' | 'cost' | 'closing';
+  type Scene = 'chain' | 'waste' | 'why' | 'fuse' | 'triton' | 'whatfuses' | 'tiles' | 'autotune' | 'worth' | 'cost' | 'closing';
   interface Step { caption: string; scene: Scene }
   const steps: Step[] = [
     { scene: 'chain', caption: `Chapter 12 left a piece looking like this: a chain of kernels between two matmuls, each one reading its input from memory and writing its output back. Take the two in the middle.` },
@@ -30,10 +35,11 @@
     { scene: 'fuse', caption: `<b>Fuse them.</b> One kernel: load gate and up once, compute the SiLU and the multiply in registers, store the answer once. Identical arithmetic, two fewer trips through memory.` },
     { scene: 'triton', caption: `And you can, because chapter 12 already traced the model. <b>Inductor</b> takes that graph, walks the chain of pointwise ops, and writes a <b>Triton</b> kernel that does all of them in one pass.` },
     { scene: 'whatfuses', caption: `Pointwise and reduction chains fuse freely. Matmuls don't: Inductor doesn't write those, it <b>picks</b> one — cuBLAS, a Triton template, CUTLASS — and fuses only the edges into it. Eleven kernels become eight.` },
-    { scene: 'autotune', caption: `The second job. A decode matmul is <b>skinny</b>: ${B_EX} rows against a 4096×14336 weight. Library defaults are tuned for square. So benchmark a handful of tilings on the shape you actually have, and keep the winner.` },
-    { scene: 'worth', caption: `What it's worth: single digits. Fusing the chain removes about ${pctTraffic.toFixed(0)}% of a decode step's memory traffic; autotuning skinny matmuls is worth another few. After chapters 11 and 12 took the ${(9).toFixed(0)} ms of launches, single digits is <b>what's left</b>.` },
-    { scene: 'cost', caption: `And it isn't free. Every shape gets compiled, and <code>max-autotune</code> benchmarks every candidate for every shape — minutes of startup, once per rung. Hence a cap on which batch sizes get compiled, and a cache you can ship to the next machine.` },
-    { scene: 'closing', caption: `So the layer is recorded, cut, fused and tuned. One kernel in the middle has had none of it: attention was cut out in chapter 12 and has been running eagerly ever since. What <i>is</i> that kernel — and why does SGLang ship five of them? Chapter ${CH_NEXT}.` },
+    { scene: 'tiles', caption: `The second job needs one idea first. A matmul's output is carved into <b>tiles</b>, and each tile is one thread block's share of the work: it reads the rows of A and the columns of B that produce its patch. <code>BLOCK</code> is that tile's shape.` },
+    { scene: 'autotune', caption: `A library picks a tile shape that suits a square output. A decode matmul's output is ${B_EX} rows by ${F.toLocaleString()} columns — 56 times wider than it is tall. So benchmark a handful of shapes on the real one and keep the fastest.` },
+    { scene: 'worth', caption: `Fusing that chain removes ${savedMB.toFixed(0)} MB from a decode step at batch ${B_EX}. Against the ${(totalMB / 1e3).toFixed(1)} GB the step moves in total that is about ${pctTraffic.toFixed(0)}%, which on a memory-bound step is about ${(savedMs * 1000).toFixed(0)} µs of ${fmtMs(tMem)}.` },
+    { scene: 'cost', caption: `Two jobs run at startup, each once per captured shape: Inductor compiles a kernel for every fused group, then chapter 11 records a replay of them. <code>max-autotune</code> adds a benchmark sweep per matmul.` },
+    { scene: 'closing', caption: `The layer has been cut, fused and recorded — except for one kernel. Attention was cut out in chapter 12 and has run eagerly ever since. So what can be done with attention itself? Chapter ${CH_NEXT}.` },
   ];
 
   let step = $state(0);
@@ -53,12 +59,25 @@
   ];
   const GROUPS = 8;
 
+  // record / cut / fuse keep the colours they had in chapters 11, 12 and 13
+  const OPS = {
+    record: { n: 'record', ch: 11, c: 'var(--gen)' },
+    cut: { n: 'cut', ch: 12, c: 'var(--eos)' },
+    fuse: { n: 'fuse', ch: 13, c: '#16a34a' },
+  };
+
   // candidate matmul tilings, as an autotune sweep would find them
+  // the startup bill, once --torch-compile-max-bs 16 has fixed the rungs at 1, 2, 4, 8, 16
+  const DISTINCT_K = 8;      // fused groups in one layer, from the "what fuses" step
+  const MATMULS = 4;         // of those 8
+  const SHAPES = 5;
   const cands = [
     { n: 'BLOCK 128×128', t: 1.00 }, { n: 'BLOCK 64×256', t: 0.86 }, { n: 'BLOCK 32×256', t: 0.71 },
     { n: 'BLOCK 16×512', t: 0.78 }, { n: 'cuBLAS default', t: 0.94 },
   ];
   const best = cands.reduce((a, c) => (c.t < a.t ? c : a));
+  const compiles = DISTINCT_K * SHAPES;
+  const benches = MATMULS * cands.length * SHAPES;
 </script>
 
 <figure class="viz">
@@ -96,8 +115,8 @@
             </g>
           {/each}
           <g in:fade={{ delay: 800 }}>
-            <rect x="238" y="82" width="216" height="66" rx="10" fill="none" stroke="var(--eos)" stroke-dasharray="4 3" />
-            <text x="346" y="74" text-anchor="middle" class="tag strong" fill="var(--eos)">these two</text>
+            <rect x="234" y="82" width="280" height="66" rx="10" fill="none" stroke="var(--eos)" stroke-dasharray="4 3" />
+            <text x="374" y="74" text-anchor="middle" class="tag strong" fill="var(--eos)">these two</text>
           </g>
           <text x="16" y="286" class="legend" in:fade={{ delay: 1000 }}>the two matmuls have to touch memory: that is where the weights are</text>
           <text x="16" y="308" class="legend muted" in:fade={{ delay: 1000 }}>the two in the middle touch it only because of how they were called</text>
@@ -211,14 +230,14 @@
             { t: 'Inductor', l: ['walk the list, group', 'the pointwise ops', 'that touch the same rows'], c: 'var(--accent)' },
             { t: 'Triton, generated', l: ['one kernel per group,', 'compiled at startup,', 'cached on disk'], c: '#16a34a' },
           ] as b, i}
-            {@const x = 22 + i * 236}
+            {@const x = 38 + i * 226}
             <g in:fly={{ y: 8, delay: i * 280, duration: 300 }}>
-              <rect {x} y="64" width="216" height="94" rx="12" fill="#fbfaf7" stroke={b.c} />
+              <rect {x} y="64" width="190" height="94" rx="12" fill="#fbfaf7" stroke={b.c} />
               <text x={x + 14} y="88" class="slab strong small">{b.t}</text>
               {#each b.l as line, k}<text x={x + 14} y={110 + k * 16} class="tag">{line}</text>{/each}
             </g>
             {#if i < 2}
-              <path d="M {x + 220} 111 H {x + 232}" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#tc-arrow)" in:fade={{ delay: i * 280 + 240 }} />
+              <path d="M {x + 196} 111 H {x + 222}" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#tc-arrow)" in:fade={{ delay: i * 280 + 240 }} />
             {/if}
           {/each}
           <g in:fade={{ delay: 900 }}>
@@ -235,6 +254,11 @@
             {/each}
           </g>
           <text x="16" y="336" class="legend muted" in:fade={{ delay: 1600 }}>nobody at SGLang wrote this file; it is generated from the graph, for the shapes the graph was traced with</text>
+          <g in:fade={{ delay: 1900 }}>
+            <circle cx="24" cy="364" r="4" fill="var(--gen)" />
+            <text x="38" y="368" class="mono strong">--cuda-graph-tc-compiler inductor</text>
+            <text x="274" y="368" class="tag">chapter 12's default was <tspan class="strong">eager</tspan>: trace, cut, and stop there</text>
+          </g>
         </g>
       {/if}
 
@@ -275,119 +299,198 @@
         </g>
       {/if}
 
-      <!-- 7: autotuning the shapes you actually have -->
+      <!-- 7: what a tile is -->
+      {#if cur.scene === 'tiles'}
+        {@const CELL = 13}
+        {@const ROWS = 8}
+        {@const COLS = 12}
+        <g transition:fade={{ duration: 250 }}>
+          <text x="16" y="42" class="rowlabel">what a tiling is · the output C of a small matmul, [{ROWS} × {COLS}], carved up two ways</text>
+          {#each [{ x: 60, bm: 4, bn: 4 }, { x: 400, bm: 8, bn: 6 }] as v, p}
+            {@const w = COLS * CELL}
+            {@const h = ROWS * CELL}
+            {@const nT = (ROWS / v.bm) * (COLS / v.bn)}
+            <g in:fade={{ delay: p * 450, duration: 250 }}>
+              <text x={v.x + w / 2} y="76" text-anchor="middle" class="slab strong small">BLOCK {v.bm} × {v.bn}</text>
+              <rect x={v.x} y="90" width={w} height={h} fill="#f4f2ec" stroke="var(--line)" />
+              {#each Array(COLS - 1) as _, c}
+                <line x1={v.x + (c + 1) * CELL} y1="90" x2={v.x + (c + 1) * CELL} y2={90 + h} stroke="white" stroke-width="1" />
+              {/each}
+              {#each Array(ROWS - 1) as _, r}
+                <line x1={v.x} y1={90 + (r + 1) * CELL} x2={v.x + w} y2={90 + (r + 1) * CELL} stroke="white" stroke-width="1" />
+              {/each}
+              <rect x={v.x} y="90" width={v.bn * CELL} height={v.bm * CELL} fill="var(--accent)" opacity="0.8" />
+              {#each Array(COLS / v.bn - 1) as _, c}
+                <line x1={v.x + (c + 1) * v.bn * CELL} y1="90" x2={v.x + (c + 1) * v.bn * CELL} y2={90 + h} stroke="var(--fg)" stroke-width="1.6" />
+              {/each}
+              {#each Array(ROWS / v.bm - 1) as _, r}
+                <line x1={v.x} y1={90 + (r + 1) * v.bm * CELL} x2={v.x + w} y2={90 + (r + 1) * v.bm * CELL} stroke="var(--fg)" stroke-width="1.6" />
+              {/each}
+              <text x={v.x + w / 2} y={90 + h + 22} text-anchor="middle" class="tag"><tspan class="strong">{nT} tiles</tspan> → {nT} thread blocks</text>
+              <text x={v.x + w / 2} y={90 + h + 40} text-anchor="middle" class="tag">each reads {v.bm} rows of A, {v.bn} columns of B</text>
+            </g>
+          {/each}
+          <g in:fade={{ delay: 900 }}>
+            <rect x="248" y="112" width="104" height="60" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" />
+            <text x="300" y="134" text-anchor="middle" class="tag strong">one tile</text>
+            <text x="300" y="150" text-anchor="middle" class="tag">= one block's</text>
+            <text x="300" y="164" text-anchor="middle" class="tag">patch of C</text>
+          </g>
+          <g in:fade={{ delay: 1200 }}>
+            <text x="16" y="300" class="legend">a bigger tile reuses more of what it loads, and needs more registers to hold it</text>
+            <text x="16" y="322" class="legend muted">a smaller tile makes more blocks, which is how you keep every SM on the GPU busy</text>
+            <text x="16" y="344" class="legend muted">the right trade depends on the shape of C — so it depends on the batch</text>
+          </g>
+        </g>
+      {/if}
+
+      <!-- 8: the shape you actually have -->
       {#if cur.scene === 'autotune'}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="42" class="rowlabel">the other job · picking the kernel for the shape in front of you</text>
-          <rect x="30" y="64" width="660" height="44" rx="10" fill="#fbfaf7" stroke="var(--accent)" />
-          <text x="48" y="92" class="mono">one decode matmul · <tspan class="strong">[{B_EX}, {D.toLocaleString()}]</tspan> × [{D.toLocaleString()}, {F.toLocaleString()}] — {B_EX} rows against a wall of weights</text>
-          <text x="16" y="140" class="rowlabel">candidate tilings · time on that exact shape, shorter is better</text>
+          <text x="16" y="42" class="rowlabel">the shape a decode matmul actually has</text>
+          <text x="40" y="70" class="tag">C = [{B_EX} × {F.toLocaleString()}] · {B_EX} rows, {F.toLocaleString()} columns</text>
+          <rect x="40" y="78" width="640" height="12" fill="var(--accent)" opacity="0.8" />
+          <text x="40" y="106" class="tag">56 times wider than it is tall — there are only {B_EX} rows to divide between tiles</text>
+
+          <text x="16" y="146" class="rowlabel">candidate tile shapes · time on that exact C, shorter is better</text>
           {#each cands as c, i}
-            {@const y = 160 + i * 30}
+            {@const y = 164 + i * 28}
             {@const win = c.n === best.n}
-            <g in:fade={{ delay: i * 200, duration: 200 }}>
+            <g in:fade={{ delay: i * 180, duration: 200 }}>
               <text x="30" y={y + 14} class={win ? 'mono strong' : 'mono muted'}>{c.n}</text>
-              <rect x="170" y={y} width={c.t * 420} height="18" rx="4" fill={win ? '#16a34a' : 'var(--faint)'} opacity={win ? 0.9 : 0.5} />
-              <text x={170 + c.t * 420 + 8} y={y + 14} class="tag">{(c.t * 100).toFixed(0)}%</text>
-              {#if win}<text x={170 + c.t * 420 + 44} y={y + 14} class="tag strong" fill="#16a34a">keep this one</text>{/if}
+              <rect x="170" y={y} width={c.t * 400} height="18" rx="4" fill={win ? '#16a34a' : 'var(--faint)'} opacity={win ? 0.9 : 0.5} />
+              <text x={170 + c.t * 400 + 8} y={y + 14} class="tag">{(c.t * 100).toFixed(0)}%</text>
+              {#if win}<text x={170 + c.t * 400 + 44} y={y + 14} class="tag strong" fill="#16a34a">keep this one</text>{/if}
             </g>
           {/each}
-          <g in:fade={{ delay: 1200 }}>
-            <text x="16" y="336" class="legend">a library default is tuned for <tspan class="strong">square</tspan> matmuls; a decode matmul is a sliver, and the best tiling for it is a different one</text>
-            <text x="16" y="358" class="legend muted">this is where most of the reported "5–15% at small batch" comes from, not from the fusion</text>
+          <g in:fade={{ delay: 1000 }}>
+            <text x="16" y="336" class="legend">a library's default tile is chosen for a <tspan class="strong">square</tspan> output; this one is a sliver, and a different shape wins</text>
+            <text x="16" y="358" class="legend muted">most of the reported "5–15% at small batch" comes from here, not from the fusion</text>
           </g>
         </g>
       {/if}
 
-      <!-- 8: what it is worth -->
+      <!-- 9: what it is worth -->
       {#if cur.scene === 'worth'}
-        {@const X = 210}
-        {@const SC = 26}
+        {@const BX = 170}
+        {@const BW2 = 500}
+        {@const perGB = BW2 / (totalMB / 1e3)}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="42" class="rowlabel">one decode step at batch {B_EX} · where the bytes go</text>
-          {#each [
-            { t: 'the weights', gb: W_GB, c: 'var(--gen)', s: 'read every step, irreducible' },
-            { t: 'activations', gb: (savedPerTok * B_EX * 3) / 1e3, c: 'var(--accent)', s: 'everything the layers pass along' },
-            { t: 'of which: fusible', gb: savedMB / 1e3, c: '#16a34a', s: 'intermediates that never needed a trip' },
-          ] as row, i}
-            {@const y = 84 + i * 62}
-            <g in:fade={{ delay: i * 250, duration: 220 }}>
-              <text x={X - 12} y={y + 18} text-anchor="end" class="rowlabel">{row.t}</text>
-              <rect x={X} y={y} width={Math.max(3, row.gb * SC)} height="26" rx="4" fill={row.c} opacity="0.85" />
-              <text x={X + Math.max(3, row.gb * SC) + 10} y={y + 18} class="tag strong">{row.gb < 1 ? `${Math.round(row.gb * 1000)} MB` : `${row.gb.toFixed(1)} GB`}</text>
-              <text x={X} y={y + 40} class="tag">{row.s}</text>
-            </g>
-          {/each}
-          <g in:fade={{ delay: 900 }}>
-            <text x="16" y="292" class="legend">fusing the chain takes <tspan class="strong">{pctTraffic.toFixed(0)}%</tspan> off the step: {savedMB.toFixed(0)} MB, about {(savedMs * 1000).toFixed(0)} µs of the {fmtMs(tMem)}</text>
-            <text x="16" y="314" class="legend muted">autotuning the matmuls is worth a few more percent — and more still on a quantised model (chapter {CH_QUANT})</text>
+          <text x="16" y="42" class="rowlabel">one decode step at batch {B_EX} · the bytes it moves</text>
+
+          <g in:fade={{ delay: 100, duration: 250 }}>
+            <text x={BX - 12} y="98" text-anchor="end" class="rowlabel">it moves</text>
+            <rect x={BX} y="80" width={W_GB * perGB} height="28" rx="4" fill="var(--gen)" opacity="0.85" />
+            <rect x={BX + W_GB * perGB} y="80" width={(actMB / 1e3) * perGB} height="28" rx="4" fill="var(--accent)" opacity="0.85" />
+            <text x={BX + BW2 + 12} y="98" class="tag strong">{(totalMB / 1e3).toFixed(1)} GB</text>
+            <text x={BX + (W_GB * perGB) / 2} y="126" text-anchor="middle" class="tag">the weights · {W_GB.toFixed(1)} GB, read whatever the batch is</text>
+            <path d="M {BX + BW2 - 20} 112 V 140" fill="none" stroke="var(--faint)" stroke-width="1" />
+            <text x={BX + BW2 - 28} y="152" text-anchor="end" class="tag">activations · {(actMB / 1e3).toFixed(1)} GB</text>
           </g>
-          <g in:fade={{ delay: 1400 }}>
-            <rect x="16" y="336" width="676" height="44" rx="10" fill="var(--accent-soft)" stroke="var(--accent)" />
-            <text x="360" y="363" text-anchor="middle" class="slab small">chapters 11 and 12 took the <tspan class="strong">9 ms</tspan> of launches. <tspan class="strong">Single digits is what's left.</tspan></text>
+
+          <g in:fade={{ delay: 500, duration: 250 }}>
+            <text x={BX - 12} y="196" text-anchor="end" class="rowlabel">fusing removes</text>
+            <rect x={BX} y="178" width={Math.max(3, (savedMB / 1e3) * perGB)} height="28" rx="2" fill="#16a34a" opacity="0.9" />
+            <text x={BX + 22} y="196" class="tag strong">{savedMB.toFixed(0)} MB</text>
+            <text x={BX + 96} y="196" class="tag">the intermediates that never needed a trip</text>
+          </g>
+
+          <g in:fade={{ delay: 900 }}>
+            <text x="16" y="248" class="legend">{savedMB.toFixed(0)} MB out of {(totalMB / 1e3).toFixed(1)} GB is <tspan class="strong">{pctTraffic.toFixed(0)}% of the bytes</tspan></text>
+            <text x="16" y="270" class="legend muted">the step is memory-bound, so {pctTraffic.toFixed(0)}% of the bytes is about {pctTraffic.toFixed(0)}% of the time: {(savedMs * 1000).toFixed(0)} µs of {fmtMs(tMem)}</text>
+          </g>
+          <g in:fade={{ delay: 1300 }}>
+            <rect x="16" y="296" width="676" height="52" rx="10" fill="var(--accent-soft)" stroke="var(--accent)" />
+            <text x="32" y="318" class="slab small">Chapters 11 and 12 removed <tspan class="strong">{fmtMs(launchSaved)}</tspan> of launch overhead — nearly half of a {fmtMs(launchMsEager)} step.</text>
+            <text x="32" y="338" class="slab small">Fusing removes <tspan class="strong">{(savedMs * 1000).toFixed(0)} µs</tspan>, about {ratio}× smaller. Compiler wins are this size.</text>
           </g>
         </g>
       {/if}
 
-      <!-- 9: what it costs -->
+      <!-- 10: what it costs -->
       {#if cur.scene === 'cost'}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="42" class="rowlabel">what you pay for it, and when</text>
+          <text x="16" y="42" class="rowlabel">two jobs at startup · both of them once per captured shape</text>
           {#each [
-            { t: 'trace', s: 'once per model', bar: 0.06, c: 'var(--muted)' },
-            { t: 'generate the Triton', s: 'once per group, per shape', bar: 0.22, c: 'var(--accent)' },
-            { t: 'autotune', s: 'every candidate × every shape', bar: 1.0, c: 'var(--eos)' },
-          ] as row, i}
-            {@const y = 76 + i * 56}
-            <g in:fade={{ delay: i * 250, duration: 220 }}>
-              <text x="188" y={y + 18} text-anchor="end" class="rowlabel">{row.t}</text>
-              <rect x="200" y={y} width={row.bar * 340} height="26" rx="4" fill={row.c} opacity="0.85" />
-              <text x={200 + row.bar * 340 + 10} y={y + 18} class="tag">{row.s}</text>
+            { t: '1 · compile', c: 'var(--accent)', l: ['Inductor generates and compiles a Triton', 'kernel for each fused group'], out: 'output: kernels' },
+            { t: '2 · capture', c: 'var(--gen)', l: ['chapter 11 records a replay of those', 'kernels running, in order'], out: 'output: a graph' },
+          ] as b, i}
+            {@const x = 30 + i * 336}
+            <g in:fade={{ delay: i * 250, duration: 250 }}>
+              <rect {x} y="60" width="300" height="76" rx="12" fill="#fbfaf7" stroke={b.c} />
+              <text x={x + 16} y="82" class="slab strong small">{b.t}</text>
+              {#each b.l as line, k}<text x={x + 16} y={102 + k * 15} class="tag">{line}</text>{/each}
+              <text x={x + 284} y="82" text-anchor="end" class="tag" fill={b.c}>{b.out}</text>
             </g>
           {/each}
-          <g in:fade={{ delay: 900 }}>
-            <text x="16" y="266" class="legend">all of it at startup, all of it before the first request — <tspan class="strong">minutes, not seconds</tspan></text>
-            <text x="16" y="292" class="legend muted">so you cap which batch sizes get compiled, and you keep the result</text>
-            <rect x="16" y="310" width="676" height="62" rx="10" fill="#fbfaf7" stroke="var(--line)" />
-            <text x="32" y="332" class="mono strong">--torch-compile-max-bs</text>
-            <text x="230" y="332" class="tag">compile up to this batch size and no further</text>
-            <text x="32" y="356" class="mono strong">TORCHINDUCTOR_CACHE_DIR</text>
-            <text x="230" y="356" class="tag">the generated kernels, on disk — ship it and the next machine skips the wait</text>
+          <path d="M 336 98 H 358" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#tc-arrow)" in:fade={{ delay: 220 }} />
+          <text x="16" y="156" class="tag" in:fade={{ delay: 500 }}>compile has to run first: a recording freezes whichever kernels exist when it is taken</text>
+
+          <g in:fade={{ delay: 700 }}>
+            <text x="16" y="192" class="rowlabel">the bill, with {SHAPES} shapes captured</text>
+            <text x="30" y="220" class="slab small">kernels to compile</text>
+            <text x="230" y="220" class="mono">{DISTINCT_K} distinct kernels × {SHAPES} shapes</text>
+            <text x="560" y="220" class="slab strong small">= {compiles}</text>
+            <text x="30" y="246" class="slab small">matmuls to benchmark</text>
+            <text x="230" y="246" class="mono">{MATMULS} matmuls × {cands.length} candidates × {SHAPES} shapes</text>
+            <text x="560" y="246" class="slab strong small">= {benches}</text>
+            <text x="30" y="270" class="tag">not ×{LAYERS} for the layers: they are identical, so Inductor compiles one and caches it</text>
+          </g>
+
+          <g in:fade={{ delay: 1100 }}>
+            <text x="16" y="306" class="mono strong">max-autotune</text>
+            <text x="182" y="306" class="tag">the mode that asks for the sweep two steps back · without it the second row is 0</text>
+            <text x="16" y="328" class="mono strong">--torch-compile-max-bs 16</text>
+            <text x="182" y="328" class="tag">sets the "{SHAPES} shapes" — bigger batches then run with none of this</text>
+            <text x="16" y="358" class="legend">measured in SGLang: <tspan class="strong">90 s</tspan> on a 235B MoE, <tspan class="strong">158 s</tspan> on GLM-5.2, before the first request</text>
           </g>
         </g>
       {/if}
 
-      <!-- 10: the one kernel none of this touched -->
+      <!-- 11: the one kernel none of this touched -->
       {#if cur.scene === 'closing'}
         <g transition:fade={{ duration: 250 }}>
           <text x="16" y="42" class="rowlabel">one layer, after three chapters of work</text>
           {#each layerK as k, i}
             {@const x = 30 + i * 60}
-            <g in:fade={{ delay: i * 60, duration: 200 }}>
-              <rect {x} y="76" width="52" height="40" rx="5" fill={k.seam ? 'var(--eos)' : k.mm ? 'var(--fg)' : '#16a34a'} opacity={k.seam ? 0.9 : 0.8} />
-              <text x={x + 26} y="101" text-anchor="middle" class="kname">{k.n}</text>
+            <g in:fade={{ delay: i * 50, duration: 180 }}>
+              <rect {x} y="60" width="52" height="38" rx="5" fill={k.seam ? 'var(--eos)' : k.mm ? 'var(--fg)' : '#16a34a'} opacity={k.seam ? 0.9 : 0.8} />
+              <text x={x + 26} y="84" text-anchor="middle" class="kname">{k.n}</text>
             </g>
           {/each}
-          <g in:fade={{ delay: 800 }}>
-            <path d="M 216 126 V 146" fill="none" stroke="var(--eos)" stroke-width="1.5" marker-end="url(#tc-arrow-bad)" />
-            <text x="216" y="164" text-anchor="middle" class="tag strong" fill="var(--eos)">still eager, still untouched</text>
+          <g in:fade={{ delay: 700 }}>
+            <path d="M 236 100 V 118" fill="none" stroke="var(--eos)" stroke-width="1.5" marker-end="url(#tc-arrow-bad)" />
+            <text x="236" y="134" text-anchor="middle" class="tag strong" fill="var(--eos)">still eager, still untouched</text>
           </g>
+
           {#each [
-            { c: 11, t: 'recorded', s: 'the launches became one replay' },
-            { c: 12, t: 'cut', s: 'and attention was left out of the recording' },
-            { c: 13, t: 'fused and tuned', s: 'the glue between the matmuls was rewritten' },
-          ] as row, i}
-            {@const y = 196 + i * 42}
-            <g in:fly={{ x: -8, delay: 1000 + i * 180, duration: 250 }}>
-              <text x="30" y={y + 16} class="rowlabel">chapter {row.c}</text>
-              <text x="130" y={y + 16} class="slab strong small">{row.t}</text>
-              <text x="290" y={y + 16} class="tag">{row.s}</text>
+            { t: 'the order you met them', y: 168, badges: true, ops: [OPS.record, OPS.cut, OPS.fuse] },
+            { t: 'the order they happen', y: 224, badges: false, ops: [OPS.cut, OPS.fuse, OPS.record] },
+          ] as row, r}
+            <g in:fly={{ x: -10, delay: 900 + r * 280, duration: 280 }}>
+              <text x="30" y={row.y + 21} class="slab small" fill="var(--muted)">{row.t}</text>
+              {#each row.ops as op, i}
+                {@const x = 240 + i * 152}
+                {#if row.badges}
+                  <text x={x + 65} y={row.y - 8} text-anchor="middle" class="badge">chapter {op.ch}</text>
+                {/if}
+                <rect {x} y={row.y} width="130" height="32" rx="16" fill={op.c} fill-opacity="0.13" stroke={op.c} stroke-width="1.5" />
+                <text x={x + 65} y={row.y + 21} text-anchor="middle" class="slab strong small" fill={op.c}>{op.n}</text>
+                {#if i < 2}
+                  <path d="M {x + 142} {row.y + 11} L {x + 148} {row.y + 16} L {x + 142} {row.y + 21}" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                {/if}
+              {/each}
             </g>
           {/each}
-          <text x="16" y="348" class="legend" in:fade={{ delay: 1700 }}><tspan class="strong">Attention has had none of it.</tspan> It was cut out in chapter {CH_NEXT - 2} and has been running eagerly ever since.</text>
-          <text x="16" y="370" class="legend muted" in:fade={{ delay: 1700 }}>so what is that kernel, and why does SGLang ship five different ones?</text>
+
+          <g in:fade={{ delay: 1500 }}>
+            <text x="16" y="286" class="legend muted">you cut before you record, because you cannot record what will not capture</text>
+            <text x="16" y="306" class="legend muted">and you fuse before you record, because a recording freezes whichever kernels exist when it is taken</text>
+            <text x="16" y="344" class="legend"><tspan class="strong">Attention sat outside all three.</tspan> So what can be done with the attention kernel itself?</text>
+          </g>
         </g>
       {/if}
+
     </svg>
   </div>
 
@@ -410,6 +513,7 @@
   .slab { font-size: 12px; fill: var(--fg); }
   .slab.small { font-size: 11.5px; }
   .slab.strong.small { font-size: 12px; font-weight: 650; }
+  .badge { font-family: var(--mono); font-size: 9px; fill: var(--faint); letter-spacing: 0.04em; }
   .legend { font-size: 11.5px; fill: var(--fg); }
   .legend .strong { font-weight: 650; }
   .legend.muted { fill: var(--muted); }

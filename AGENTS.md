@@ -52,6 +52,15 @@ Each chapter is a **stage**: one visualization filling the viewport, captions as
 
 Caption voice: short, plain, factual, the way you'd explain it to a friend at a whiteboard. No throat-clearing, no "let's explore".
 
+**No rhetoric — ever.** A caption explains, or it is cut; there is no third job. No hooks, no punchlines, no aphorisms, no sentence whose work is emphasis rather than information. If a line can't be replaced by a number, a name, or a mechanism, delete it. This binds the legend lines drawn on the stage exactly as hard as the captions — both are narration. Two that had to be rewritten, as calibration:
+
+| rhetoric | what replaced it |
+|---|---|
+| "What it's worth: single digits." | "Fusing that chain removes 470 MB … about 3%, or 140 µs of 4.8 ms." |
+| "What is left to win is inside the kernels, and it comes in percent." | "Chapters 11 and 12 removed 4.2 ms of launch overhead … fusing removes 140 µs, about 30× smaller." |
+
+The closing question is held to the same standard: it must name something visible on the stage, not gesture at a theme. "So why is each link in that chain a separate kernel at all?" was too vague (and collided with the chapter's own argument for cutting things apart); "Nothing but `mul` ever reads what `silu` wrote, and it wants it immediately. So why are they two kernels?" is the same question anchored to two boxes the reader can point at.
+
 Captions are HTML strings rendered with `{@html}`, so `<b>` and `<code>` work inside them. `.caption` is pinned to exactly three lines at 60ch so the canvas above never shifts when a caption wraps differently — a caption that overflows is silently clipped, so keep them inside that budget.
 
 ## Chapters
