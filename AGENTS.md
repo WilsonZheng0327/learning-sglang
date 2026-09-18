@@ -98,6 +98,8 @@ For motion *within* one step (07, 08, 09, 10, 11), the component keeps a `phase`
 
 `node scripts/shot.mjs <outDir> <waitMs> name=url ...` screenshots pages through headless chromium with a real wall-clock wait, so Svelte transitions finish. Needs `chromium` on PATH and Node 22+ (it drives the DevTools protocol over the built-in WebSocket). Append `|Space` or `|ArrowRight,ArrowRight` to a url to press keys after load; set `CLIP=x,y,w,h` to capture one region at 2x and `SCALE=2` for a full-page 2x. Plain `chromium --screenshot --virtual-time-budget` freezes delayed transitions mid-flight and is not trustworthy for this site.
 
+`node scripts/transcript.mjs` (same requirements, plus a running dev server) writes `transcript/NN-slug.md` for every ready chapter: each step's caption, every piece of text on the stage once its phases have settled, and the chapter's prose. Read those to check wording and numbers across chapters instead of opening the components; `ONLY=13` regenerates one chapter. The files are generated — edit the component or MDX, then rerun, and commit the regenerated transcript with the change.
+
 ## Adding a chapter
 
 1. Add the entry to `src/chapters.ts` with its `part` and `ready: true` (or flip `ready` if it's already outlined there).

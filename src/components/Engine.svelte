@@ -4,7 +4,7 @@
   import { chapters, type NavLink } from '../chapters';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
-  const CH_CUDA = chNum('11-cuda-graphs'), CH_DISAGG = chNum('21-disaggregation');
+  const CH_CUDA = chNum('11-cuda-graphs'), CH_DISAGG = chNum('22-disaggregation');
   const W_GB = 16, BW = 3.35;
   const tStep = W_GB / BW;
   const fmt = (ms: number) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms';
@@ -12,7 +12,7 @@
   type Scene = 'process' | 'overlap' | 'future' | 'map';
   interface Step { caption: string; scene: Scene; v?: number }
   const steps: Step[] = [
-    { scene: 'process', v: 0, caption: `Inside process 2. Two lists of <b>Req</b> objects, waiting and running. The page pool and the radix tree from chapters 7 and 8. A model runner that owns the GPU. And one loop, top to bottom, about ${Math.round(1000 / tStep)} times a second.` },
+    { scene: 'process', v: 0, caption: `Inside process 2. Two lists of <b>Req</b> objects, waiting and running. The page pool and the radix tree from chapters 7 and 8. A model runner that owns the GPU. And one loop, top to bottom, about ${Math.round(1000 / Number(tStep.toFixed(1)))} times a second.` },
     { scene: 'process', v: 1, caption: `Top of the loop: drain the inbox. Each message becomes a Req: its ids and sampling params, a prefix match against the tree (3 of its 5 tokens are already cached), and a place at the end of the waiting list. Ours arrives now.` },
     { scene: 'process', v: 2, caption: `Chapter 6's decision. Anyone waiting, and room in the pool for what they'll write? Ours needs 2 pages: its 2 uncached prompt tokens. Room enough, so it makes this step's prefill batch.` },
     { scene: 'process', v: 3, caption: `A batch becomes tensors: every token id in one flat array, each request's positions, and each request's page table so attention can find its cache. Pages for the tokens about to be written are allocated here.` },
