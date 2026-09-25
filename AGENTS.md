@@ -61,6 +61,28 @@ Caption voice: short, plain, factual, the way you'd explain it to a friend at a 
 
 The closing question is held to the same standard: it must name something visible on the stage, not gesture at a theme. "So why is each link in that chain a separate kernel at all?" was too vague (and collided with the chapter's own argument for cutting things apart); "Nothing but `mul` ever reads what `silu` wrote, and it wants it immediately. So why are they two kernels?" is the same question anchored to two boxes the reader can point at.
 
+## Designing a chapter
+
+These are the author's rules, gathered from chapter reviews. A chapter that breaks one comes back.
+
+**Motivation first.** Open with the cost or the problem, in numbers the reader can check against earlier chapters, before any mechanism. Chapter 14 opens with the bytes attention reads against the 16 GB weight read; chapter 13 opens with the silu→mul intermediate's 28 KB. The first step of a chapter is the reason the chapter exists.
+
+**Nothing assumed.** Every term, name and number is either explained on the step where it appears or was explained on a step the reader has already passed. A reader has only what the chapters have shown so far. Standard jargon is not exempt: warp, SM, extend, un-project, flops per byte each had to be glossed or cut.
+
+**One picture per step, and the picture carries the point.** Text is for what the picture cannot say. Start from the visualization, not the caption; if a step is mostly text, redesign it. When a step's picture is the previous step's picture with one thing changed (three kernels, then the same box with S and P gone), keep the layout identical so the change is the only difference on screen.
+
+**Before and after.** When a step claims something was reduced, draw both states on the same scale, with the quantity that changed labelled on each. Chapter 14's closing has one bar per state; chapter 13's step 9 has bytes above time.
+
+**Enumerations need a map.** When a chapter walks through several parallel things, add a step that names them, says what kind of thing each is, and says how they relate (alternatives, axes, layers), then head each following step with its place in that map (`what forces a new kernel · 2 of 4`). Without this the steps read as a flat list and the reader cannot tell whether items are alternatives or orthogonal; that was the failure of chapter 14's first draft.
+
+**Steps chain.** Each step should follow from the one before, and the last step ends on the question the next chapter answers, anchored to something visible on the stage.
+
+**Depth is a choice, stated.** Some mechanisms are deliberately not explained (online softmax's exactness argument in chapter 14, with a note that it is FlashAttention's contribution and not covered). Say what is skipped rather than hand-waving it.
+
+**Work one step at a time.** When a design is in question, build one step, screenshot it, show it, and wait; do not rebuild the whole chapter on a guess. The author reviews step by step and iterates.
+
+**Numbers stay consistent across chapters.** Llama-3-8B bf16 on one H100: 16 GB of weights, 3.35 TB/s, 4.8 ms per weight read, 989 TFLOP/s, 0.016 ms of math per token, 128 KB of KV per token, 300-token balance point, 9.0 ms eager step, 4.2 ms of launches removed by chapters 11–12. Derive numbers in the component from these constants rather than typing results, so a change propagates. When a chapter measures a step, say what it is measured against (the weight read, the step's total) and what is left out.
+
 ## Reviewing a step
 
 Run this on every step before calling a chapter done. It is how the author reviews, and a step that fails it comes back.
@@ -107,11 +129,17 @@ You write states, never keyframes. To add a step, add an entry. `?step=N` in the
 
 For motion *within* one step (07, 08, 09, 10, 11), the component keeps a `phase` state driven by an `$effect` that reads `step`, resets `phase = 0`, schedules a `setTimeout` per phase, and **returns a cleanup that clears them** — see `KVMemory.svelte`. Without that cleanup, stepping fast leaves phases from the old step firing over the new one.
 
+A phased animation that a reader needs to follow should **loop** rather than run once: schedule the cycle to repeat with a pause at the start (chapter 14's chunk walk: four chunks at 1.4 s each, the finished state, a 2.6 s rest, then again). A one-shot sequence is missed if the reader looks away, and the controls give no way to replay it short of leaving and re-entering the step. Do not add a second level of stepping inside a step; the arrow keys and progress bar are one-step-per-chapter-step across the site.
+
+Typeset math on the stage goes through KaTeX inside a `<foreignObject>` (`katex.renderToString`, see `AttentionBackends.svelte`); SVG `<text>` cannot draw a fraction or a sum legibly.
+
 ## Checking steps without a browser
 
 `node scripts/shot.mjs <outDir> <waitMs> name=url ...` screenshots pages through headless chromium with a real wall-clock wait, so Svelte transitions finish. Needs `chromium` on PATH and Node 22+ (it drives the DevTools protocol over the built-in WebSocket). Append `|Space` or `|ArrowRight,ArrowRight` to a url to press keys after load; set `CLIP=x,y,w,h` to capture one region at 2x and `SCALE=2` for a full-page 2x. Plain `chromium --screenshot --virtual-time-budget` freezes delayed transitions mid-flight and is not trustworthy for this site.
 
 `node scripts/transcript.mjs` (same requirements, plus a running dev server) writes `transcript/NN-slug.md` for every ready chapter: each step's caption, every piece of text on the stage once its phases have settled, and the chapter's prose. Read those to check wording and numbers across chapters instead of opening the components; `ONLY=13` regenerates one chapter. The files are generated — edit the component or MDX, then rerun, and commit the regenerated transcript with the change.
+
+The loop that works: edit the component → `npm run build` (the only type check) → `node scripts/shot.mjs` for the steps you touched → look at every screenshot, not just the last one → `ONLY=N node scripts/transcript.mjs` for the caption and clipping check → fix → repeat until the check is silent and the screenshots have no collisions. Within-step animations (phases) need screenshots at more than one delay to be judged. Never call a step done from the code alone.
 
 ## Adding a chapter
 
