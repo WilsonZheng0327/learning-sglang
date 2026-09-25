@@ -61,6 +61,16 @@ Caption voice: short, plain, factual, the way you'd explain it to a friend at a 
 
 The closing question is held to the same standard: it must name something visible on the stage, not gesture at a theme. "So why is each link in that chain a separate kernel at all?" was too vague (and collided with the chapter's own argument for cutting things apart); "Nothing but `mul` ever reads what `silu` wrote, and it wants it immediately. So why are they two kernels?" is the same question anchored to two boxes the reader can point at.
 
+## Reviewing a step
+
+Run this on every step before calling a chapter done. It is how the author reviews, and a step that fails it comes back.
+
+**Every point on the stage.** For each claim, name, number, or term: is it explained on this step, or on an earlier step or chapter that the reader has passed? If not, do one of three things: explain it in one tag, simplify it until it needs no explanation, or delete it. "Warps", "SM", "extend", "un-project", "flops per byte" have each slipped through once; a term the reader has not met is a hole, however standard it is. A forward reference to a library or flag that only appears later is a hole too.
+
+**Every visualization.** Does it convey one point on its own? Does reading it need context that is not on the same step? A picture that needs the caption to be decoded has failed; a picture whose point is stated only in a legend line beneath it is halfway. Numbers a reader cannot check (a "134 MB" with no arithmetic beside it) are decoration, not evidence.
+
+**Layout.** Every component needs margin around it so it reads as a distinct thing: no label touching a neighbour's box, no arrow crossing text, no two labels within a few pixels of each other. SVG text does not wrap: a line that is too long must be split by hand into two `<text>` elements, never left to run past the stage. Budget at 10px tags is about 4.9 px per character, at 11.5px legend lines about 5.6, at 11px mono row labels about 6.6; the stage is 720 wide. `node scripts/transcript.mjs` measures every `<text>` and reports any that runs past the right edge, alongside captions over three lines; a chapter is not finished while it reports either.
+
 Captions are HTML strings rendered with `{@html}`, so `<b>` and `<code>` work inside them. `.caption` is pinned to exactly three lines at 60ch so the canvas above never shifts when a caption wraps differently — a caption that overflows is silently clipped, so keep them inside that budget.
 
 ## Chapters
@@ -78,8 +88,11 @@ One line each; the MDX and the component are the real record. Slug ⇒ component
 9. `09-one-request` / `OneRequest` — HTTP POST to tokenizer to scheduler to GPU and back as SSE; why three processes (the GIL timeline) and why ZMQ. Arrowheads are per-colour markers, so a focused arrow changes colour and not just width.
 10. `10-engine` / `Engine` — inside the scheduler process: the six-stage pipeline, one `Req` pill travelling it, overlap scheduling as two CPU/GPU timelines, and a file-tree map of `sglang/srt` with chapter badges.
 11. `11-cuda-graphs` / `CudaGraphs` — a thousand launches versus one; capture per batch size, padding, why only decode is captured. Ends on what breaks capture (chapter 12).
+12. `12-piecewise-cuda-graph` / `PiecewiseGraphs` — prefill is launch-bound below ~560 tokens; padding fixes the total but not the sequence boundaries, and only attention reads those; cut at every attention, 33 pieces, replay them around eager attention; token-count rungs; `torch.compile` as the tracer that cuts. Ends on the two pointwise kernels the tracer handed back untouched (chapter 13).
+13. `13-torch-compile` / `TorchCompile` — the silu→mul intermediate that never needed HBM; why eager materialises it; Inductor writes Triton kernels for pointwise and reduction chains and picks library matmuls; tiles, and autotuning at batch 16 where a square tile is mostly padding; the worth (140 µs of 4.8 ms, against the weight read) and the startup bill as a grid. Ends on attention, the one kernel none of 11–13 touched (chapter 14).
+14. `14-attention-backends` / `AttentionBackends` — what attention reads (batch × context × 128 KB, passing the weights at ~480 tokens at batch 256); attention as three kernels over one HBM box, with S and P defined (KaTeX in a `foreignObject`) and then costed (34 MB per head, 35 GB per 2,000-token prompt); FlashAttention as the same picture with S and P gone, a looping chunk walk, and only the rescaling identity shown; then a map of the four things that force a different kernel (how many queries, where K/V sit, head layout, GPU), one step each with a `k of 4` header; the `AttentionBackend` interface; the backend table with columns matching the axes. Ends on a batch-1 step reading 16 GB for one token (chapter 15).
 
-Chapters 12–26 are outlined in `src/chapters.ts` with `ready: false`.
+Chapters 15–26 are outlined in `src/chapters.ts` with `ready: false`.
 
 ## The visualization pattern
 

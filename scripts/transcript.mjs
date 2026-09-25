@@ -1,7 +1,7 @@
 // Write a plain-text transcript of every ready chapter: each step's caption, every piece of text drawn
 // on the stage once its transitions and phases have settled, and the chapter's <details> prose.
 // The output is transcript/NN-slug.md, one file per chapter, meant for reading and diffing — not editing.
-// A caption that wraps past the three-line budget is flagged in the file and on stdout.
+// A caption that wraps past the three-line budget, or stage text that runs past the SVG's right edge, is flagged in the file and on stdout.
 // Edit the component or the MDX, then regenerate.
 //
 // usage: node scripts/transcript.mjs [baseUrl]        (default http://localhost:4321/learning-sglang)
@@ -80,6 +80,15 @@ const EXTRACT = `(() => {
   const capLines = span && lh ? Math.round(span.getBoundingClientRect().height / lh) : 0;
   const root = document.querySelector('.canvas') ?? document.querySelector('.viz');
   const lines = [];
+  // any SVG <text> whose box runs past the viewBox is clipped on screen: report it, like an overflowing caption
+  const clipped = [];
+  const svg = root?.querySelector('svg');
+  const vbW = svg?.viewBox?.baseVal?.width ?? 0;
+  if (svg && vbW) {
+    for (const t of svg.querySelectorAll('text')) {
+      try { const b = t.getBBox(); if (b.width && (b.x + b.width > vbW - 2 || b.x < 0)) clipped.push(norm(t.textContent)); } catch {}
+    }
+  }
   const walk = (el) => {
     if (el.tagName === 'text' || el.tagName === 'TEXT') { const t = norm(el.textContent); if (t) lines.push(t); return; }
     if (el.tagName === 'title' || el.tagName === 'defs' || el.tagName === 'style') return;
@@ -88,7 +97,7 @@ const EXTRACT = `(() => {
     kids.forEach(walk);
   };
   if (root) walk(root);
-  return { step: m ? Number(m[1]) : NaN, total: m ? Number(m[2]) : NaN, caption, capLines, lines };
+  return { step: m ? Number(m[1]) : NaN, total: m ? Number(m[2]) : NaN, caption, capLines, lines, clipped };
 })()`;
 
 const RIGHT = { key: 'ArrowRight', code: 'ArrowRight' };
@@ -135,12 +144,14 @@ const transcribe = async (ch) => {
     const over = s.capLines > budget ? ` (${s.capLines} lines: OVERFLOWS the ${budget}-line caption budget)` : '';
     out.push(`**Caption${over}.** ${s.caption}`, '');
     if (s.lines.length) { out.push('**On stage.**', ''); for (const l of s.lines) out.push(`- ${l}`); out.push(''); }
+    if (s.clipped.length) { out.push('**CLIPPED · runs past the right edge of the stage.**', ''); for (const l of s.clipped) out.push(`- ${l}`); out.push(''); }
   }
   const p = prose(ch.slug);
   if (p) { out.push(`## Prose · ${p.summary}`, '', p.body, ''); }
   writeFileSync(join(outDir, `${ch.slug}.md`), out.join('\n'));
   const overflowing = steps.filter((s) => s.capLines > budget).map((s) => s.step);
-  console.log(`${ch.slug}: ${steps.length} steps${overflowing.length ? ` · captions over ${budget} lines at step ${overflowing.join(', ')}` : ''}`);
+  const clippedAt = steps.filter((s) => s.clipped.length).map((s) => s.step);
+  console.log(`${ch.slug}: ${steps.length} steps${overflowing.length ? ` · captions over ${budget} lines at step ${overflowing.join(', ')}` : ''}${clippedAt.length ? ` · clipped stage text at step ${clippedAt.join(', ')}` : ''}`);
 };
 
 // a small pool: `jobs` chapters at a time, each in its own tab
