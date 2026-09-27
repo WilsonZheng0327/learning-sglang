@@ -1,15 +1,13 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import { chapters, type NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
+  import { D_MODEL as D, D_FF as F, LAYERS, BYTES, W_GB, BW, SMS } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
   const CH_NEXT = chNum('14-attention-backends');
   const CH_QUANT = chNum('16-quantization');
 
   // ---- Numbers: Llama-3-8B bf16 on one H100, continuing chapters 4, 11 and 12 --------------------------
-  const D = 4096, F = 14336, LAYERS = 32, BYTES = 2;
-  const W_GB = 16, BW = 3.35;
   const tMem = W_GB / BW;                                   // 4.8 ms, the weight read
   const inter = F * BYTES;                                  // 28 KB: one token's silu output, one layer
   const savedPerTokLayer = 2 * inter;                       // written then read back, for nothing
@@ -26,7 +24,6 @@
   const ratio = Math.round(launchSaved / savedMs);          // and how much bigger that was than this
   const fmtMs = (ms: number) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms';
   const B_SM = 16;                                          // the batch where autotuning is worth the most
-  const SMS = 132;                                          // streaming multiprocessors on an H100 SXM
 
   type Scene = 'chain' | 'waste' | 'why' | 'fuse' | 'triton' | 'whatfuses' | 'tiles' | 'autotune' | 'worth' | 'cost' | 'closing';
   interface Step { caption: string; scene: Scene }
@@ -51,6 +48,21 @@
   });
   const cur = $derived(steps[step]);
   const W = 720, H = 400;
+
+  // within-step phases, looping, for the worth step: 0 the bars whole with the piece fusing removes in red, 1 that piece gone
+  let phase = $state(0);
+  $effect(() => {
+    const s = step;
+    phase = 0;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    if (steps[s].scene === 'worth') {
+      const cycle: [number, number][] = [[1, 3200], [0, 3200]];
+      let i = 0;
+      const tick = () => { const [ph, wait] = cycle[i]; timers.push(setTimeout(() => { phase = ph; i = (i + 1) % cycle.length; tick(); }, wait)); };
+      tick();
+    }
+    return () => timers.forEach(clearTimeout);
+  });
 
   // the layer's kernels, as chapter 12 listed them, with what Inductor does to each
   const layerK = [
@@ -127,8 +139,8 @@
             <rect x="234" y="82" width="280" height="66" rx="10" fill="none" stroke="var(--eos)" stroke-dasharray="4 3" />
             <text x="374" y="74" text-anchor="middle" class="tag strong" fill="var(--eos)">these two</text>
           </g>
-          <text x="16" y="286" class="legend" in:fade={{ delay: 1000 }}>the two matmuls have to touch memory: that is where the weights are</text>
-          <text x="16" y="308" class="legend muted" in:fade={{ delay: 1000 }}>the two in the middle touch it only because of how they were called</text>
+          <text x="18" y="286" class="pt">·</text><text x="28" y="286" class="legend" in:fade={{ delay: 1000 }}>the two matmuls have to touch memory: that is where the weights are</text>
+          <text x="18" y="308" class="pt">·</text><text x="28" y="308" class="legend" in:fade={{ delay: 1000 }}>the two in the middle touch it only because of how they were called</text>
         </g>
       {/if}
 
@@ -160,8 +172,8 @@
           </g>
           <g in:fade={{ delay: 1500 }}>
             <text x="360" y="314" text-anchor="middle" class="tag">nothing else ever reads it</text>
-            <text x="16" y="352" class="legend"><tspan class="strong">{kb(savedPerTokLayer)} of traffic per token per layer</tspan>, written and read back within about a microsecond</text>
-            <text x="16" y="374" class="legend muted">across {LAYERS} layers, {savedPerTok.toFixed(1)} MB per token</text>
+            <text x="18" y="352" class="pt">·</text><text x="28" y="352" class="legend"><tspan class="strong">{kb(savedPerTokLayer)} of traffic per token per layer</tspan>, written and read back within about a microsecond</text>
+            <text x="18" y="374" class="pt">·</text><text x="28" y="374" class="legend">across {LAYERS} layers, {savedPerTok.toFixed(1)} MB per token</text>
           </g>
         </g>
       {/if}
@@ -234,8 +246,8 @@
             {/each}
           </g>
           <g in:fade={{ delay: 1100 }}>
-            <text x="16" y="316" class="legend">the intermediate never leaves the chip — it lives in a register for the two instructions that need it</text>
-            <text x="16" y="338" class="legend muted">same maths, same answer, {kb(savedPerTokLayer)} less traffic per token per layer</text>
+            <text x="18" y="316" class="pt">·</text><text x="28" y="316" class="legend">the intermediate never leaves the chip — it lives in a register for the two instructions that need it</text>
+            <text x="18" y="338" class="pt">·</text><text x="28" y="338" class="legend">same maths, same answer, {kb(savedPerTokLayer)} less traffic per token per layer</text>
           </g>
         </g>
       {/if}
@@ -272,12 +284,8 @@
               <text x="38" y={204 + i * 17} class="mono code" in:fade={{ delay: 900 + i * 90 }}>{line}</text>
             {/each}
           </g>
-          <text x="16" y="336" class="legend muted" in:fade={{ delay: 1600 }}>two loads and one store: <tspan class="mono">g * sigmoid(g)</tspan> never leaves the register it was computed in</text>
-          <g in:fade={{ delay: 1900 }}>
-            <circle cx="24" cy="364" r="4" fill="var(--gen)" />
-            <text x="38" y="368" class="mono strong">--cuda-graph-tc-compiler inductor</text>
-            <text x="274" y="368" class="tag">chapter 12's default was <tspan class="strong">eager</tspan>: trace, cut, and stop there</text>
-          </g>
+          <text x="16" y="336" class="legend" in:fade={{ delay: 1600 }}>two loads and one store: <tspan class="mono">g * sigmoid(g)</tspan> never leaves the register it was computed in</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1900 }}>SGLang: <tspan class="mono">--cuda-graph-tc-compiler inductor</tspan> · chapter 12's default was <tspan class="strong">eager</tspan>: trace, cut, and stop there</text>
         </g>
       {/if}
 
@@ -368,9 +376,9 @@
             </g>
           {/each}
           <g in:fade={{ delay: 1200 }}>
-            <text x="16" y="334" class="legend">a tile's block loads its rows of A and its columns of B in full, whatever the tile's shape</text>
-            <text x="16" y="356" class="legend muted">{tilings[1].bm} × {tilings[1].bn} makes the same {M * N} outputs from {(tilings[1].bm + tilings[1].bn) * K * ((M / tilings[1].bm) * (N / tilings[1].bn))} loads instead of {(tilings[0].bm + tilings[0].bn) * K * ((M / tilings[0].bm) * (N / tilings[0].bn))}, holding {tilings[1].bm * tilings[1].bn} accumulators per block instead of {tilings[0].bm * tilings[0].bn}</text>
-            <text x="16" y="378" class="legend muted">but it makes {(M / tilings[1].bm) * (N / tilings[1].bn)} blocks, and an H100 has {SMS} SMs to keep busy: the right shape depends on C</text>
+            <text x="18" y="334" class="pt">·</text><text x="28" y="334" class="legend">a tile's block loads its rows of A and its columns of B in full, whatever the tile's shape</text>
+            <text x="18" y="356" class="pt">·</text><text x="28" y="356" class="legend">{tilings[1].bm} × {tilings[1].bn} makes the same {M * N} outputs from {(tilings[1].bm + tilings[1].bn) * K * ((M / tilings[1].bm) * (N / tilings[1].bn))} loads instead of {(tilings[0].bm + tilings[0].bn) * K * ((M / tilings[0].bm) * (N / tilings[0].bn))}, holding {tilings[1].bm * tilings[1].bn} accumulators per block instead of {tilings[0].bm * tilings[0].bn}</text>
+            <text x="18" y="378" class="pt">·</text><text x="28" y="378" class="legend">but it makes {(M / tilings[1].bm) * (N / tilings[1].bn)} blocks, and an H100 has {SMS} SMs to keep busy: the right shape depends on C</text>
           </g>
         </g>
       {/if}
@@ -428,6 +436,8 @@
         {@const perMs = BW2 / launchMsEager}
         {@const sliverB = END - (savedMB / 1e3) * perGB}
         {@const sliverT = BX + (tMem - savedMs) * perMs}
+        {@const wB = (savedMB / 1e3) * perGB}
+        {@const wT = Math.max(3, savedMs * perMs)}
         <g transition:fade={{ duration: 250 }}>
           <text x="16" y="42" class="rowlabel">one decode step at batch {B_EX} · weights and activations, then time · chapter 4's KV cache read not shown</text>
 
@@ -437,16 +447,20 @@
             <text x={END} y="64" text-anchor="end" class="tag">activations · {(actMB / 1e3).toFixed(1)} GB</text>
             <rect x={BX} y="70" width={W_GB * perGB} height="28" rx="4" fill="var(--gen)" opacity="0.85" />
             <rect x={BX + W_GB * perGB} y="70" width={(actMB / 1e3) * perGB} height="28" rx="4" fill="var(--accent)" opacity="0.85" />
-            <text x={END + 10} y="90" class="tag strong">{(totalMB / 1e3).toFixed(1)} GB</text>
+            <text x={END + 10} y="90" class="tag strong">{((phase === 0 ? totalMB : totalMB - savedMB) / 1e3).toFixed(1)} GB</text>
             {#each [0, 4, 8, 12, 16] as t}
               <line x1={BX + t * perGB} y1="98" x2={BX + t * perGB} y2="103" stroke="var(--faint)" />
               <text x={BX + t * perGB} y="114" text-anchor="middle" class="tick">{t} GB</text>
             {/each}
           </g>
           <g in:fade={{ delay: 500, duration: 250 }}>
-            <rect x={sliverB} y="70" width={(savedMB / 1e3) * perGB} height="28" fill="#16a34a" />
-            <path d="M {sliverB + 6} 98 V 126" fill="none" stroke="#16a34a" stroke-width="1" />
-            <text x={END} y="138" text-anchor="end" class="tag strong" fill="#16a34a">fusing removes {savedMB.toFixed(0)} MB · {pctTraffic.toFixed(0)}% of the weight read</text>
+            {#if phase === 0}
+              <rect x={sliverB} y="70" width={wB} height="28" rx="4" fill="var(--eos)" transition:fade={{ duration: 500 }} />
+            {:else}
+              <rect x={sliverB + 1} y="71" width={wB - 2} height="26" rx="3" fill="white" stroke="var(--eos)" stroke-width="1.5" stroke-dasharray="3 2" transition:fade={{ duration: 500 }} />
+            {/if}
+            <path d="M {sliverB + wB / 2} 102 V 126" fill="none" stroke="var(--eos)" stroke-width="1" />
+            <text x={END} y="138" text-anchor="end" class="tag strong" style:fill="var(--eos)">{phase === 0 ? `fusing removes this ${savedMB.toFixed(0)} MB · ${pctTraffic.toFixed(0)}% of the weight read` : `removed · the step now moves ${((totalMB - savedMB) / 1e3).toFixed(1)} GB`}</text>
           </g>
 
           <text x={BX + BW2 / 2} y="168" text-anchor="middle" class="tag" in:fade={{ delay: 900 }}>the step is memory-bound, so bytes ÷ {BW} TB/s of HBM bandwidth = time</text>
@@ -457,20 +471,24 @@
             <text x={END} y="190" text-anchor="end" class="tag">CPU · {fmtMs(launchSaved)} launching · gone since chapters 11 and 12</text>
             <rect x={BX} y="196" width={tMem * perMs} height="28" rx="4" fill="var(--fg)" opacity="0.7" />
             <rect x={BX + tMem * perMs} y="196" width={launchSaved * perMs} height="28" rx="4" fill="var(--accent)" fill-opacity="0.12" stroke="var(--accent)" stroke-dasharray="4 3" />
-            <text x={END + 10} y="214" class="tag strong">{fmtMs(launchMsEager)}</text>
+            <text x={END + 10} y="214" class="tag strong">{fmtMs(launchMsEager - (phase === 0 ? 0 : savedMs))}</text>
             {#each [0, 2, 4, 6, 8] as t}
               <line x1={BX + t * perMs} y1="224" x2={BX + t * perMs} y2="229" stroke="var(--faint)" />
               <text x={BX + t * perMs} y="240" text-anchor="middle" class="tick">{t} ms</text>
             {/each}
           </g>
           <g in:fade={{ delay: 1500, duration: 250 }}>
-            <rect x={sliverT} y="196" width={Math.max(3, savedMs * perMs)} height="28" fill="#16a34a" />
-            <path d="M {sliverT + 4} 224 V 252" fill="none" stroke="#16a34a" stroke-width="1" />
-            <text x={sliverT + 4} y="264" text-anchor="middle" class="tag strong" fill="#16a34a">fusing · {(savedMs * 1000).toFixed(0)} µs</text>
+            {#if phase === 0}
+              <rect x={sliverT} y="196" width={wT} height="28" rx="3" fill="var(--eos)" transition:fade={{ duration: 500 }} />
+            {:else}
+              <rect x={sliverT + 1} y="197" width={wT - 2} height="26" rx="2.5" fill="white" stroke="var(--eos)" stroke-width="1.5" stroke-dasharray="3 2" transition:fade={{ duration: 500 }} />
+            {/if}
+            <path d="M {sliverT + wT / 2} 228 V 252" fill="none" stroke="var(--eos)" stroke-width="1" />
+            <text x={sliverT + wT / 2} y="264" text-anchor="middle" class="tag strong" style:fill="var(--eos)">{phase === 0 ? `fusing removes ${(savedMs * 1000).toFixed(0)} µs` : `removed · the GPU's ${fmtMs(tMem)} becomes ${fmtMs(tMem - savedMs)}`}</text>
           </g>
           <g in:fade={{ delay: 1900 }}>
-            <text x="16" y="310" class="legend">{savedMB.toFixed(0)} MB ÷ {BW} TB/s = <tspan class="strong">{(savedMs * 1000).toFixed(0)} µs</tspan> of a {fmtMs(tMem)} weight read: {pctTraffic.toFixed(0)}% of the weight read, {pctTraffic.toFixed(0)}% of its time</text>
-            <text x="16" y="332" class="legend muted">chapters 11 and 12 removed {fmtMs(launchSaved)}; this removes about {ratio}× less</text>
+            <text x="18" y="310" class="pt">·</text><text x="28" y="310" class="legend">{savedMB.toFixed(0)} MB ÷ {BW} TB/s = <tspan class="strong">{(savedMs * 1000).toFixed(0)} µs</tspan> of a {fmtMs(tMem)} weight read: {pctTraffic.toFixed(0)}% of the weight read, {pctTraffic.toFixed(0)}% of its time</text>
+            <text x="18" y="332" class="pt">·</text><text x="28" y="332" class="legend">chapters 11 and 12 removed {fmtMs(launchSaved)}; this removes about {ratio}× less</text>
           </g>
         </g>
       {/if}
@@ -550,8 +568,8 @@
           {/each}
 
           <g in:fade={{ delay: 1500 }}>
-            <text x="16" y="286" class="legend muted">cut before recording: attention would not capture</text>
-            <text x="16" y="306" class="legend muted">fuse before recording: a recording freezes whichever kernels exist when it is taken</text>
+            <text x="18" y="286" class="pt">·</text><text x="28" y="286" class="legend">cut before recording: attention would not capture</text>
+            <text x="18" y="306" class="pt">·</text><text x="28" y="306" class="legend">fuse before recording: a recording freezes whichever kernels exist when it is taken</text>
             <text x="16" y="344" class="legend"><tspan class="strong">Attention sat outside all three.</tspan> So what can be done with the attention kernel itself?</text>
           </g>
         </g>
@@ -560,30 +578,14 @@
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={4200} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
-  .mono { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
-  .mono.muted { fill: var(--muted); }
   .mono.faint { fill: var(--faint); }
-  .mono.strong { font-weight: 600; }
   .legend .mono, .tag .mono { font-size: 10px; }
   .code { white-space: pre; }
-  .tag { font-size: 10px; fill: var(--muted); }
   .tag.strong, .tag .strong, .mono .strong { fill: var(--fg); font-weight: 600; }
-  .kname { font-family: var(--mono); font-size: 10px; fill: white; font-weight: 600; }
-  .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .slab { font-size: 12px; fill: var(--fg); }
-  .slab.small { font-size: 11.5px; }
-  .slab.strong.small { font-size: 12px; font-weight: 650; }
   .badge { font-family: var(--mono); font-size: 9px; fill: var(--faint); letter-spacing: 0.04em; }
   .tick { font-family: var(--mono); font-size: 9px; fill: var(--faint); }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
-  .legend.muted { fill: var(--muted); }
 </style>

@@ -45,6 +45,7 @@ export const chapters: Chapter[] = [
 export interface NavLink { title: string; href: string; ready: boolean }
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 export const hrefOf = (slug: string) => `${base}/ch/${slug}/`;
+export const chapterNumber = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
 
 // Previous and next chapter for a slug; used by the header and by the step controls at the first/last step.
 export function neighbors(slug: string): { prev?: NavLink; next?: NavLink } {

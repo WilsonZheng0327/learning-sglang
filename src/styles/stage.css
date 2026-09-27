@@ -1,0 +1,32 @@
+/* The stage every chapter's visualization draws on: its frame, and the text classes its SVG uses.
+   Every rule is wrapped in :where(), which has no specificity, so a component's own (scoped) rule always wins:
+   a component restyles a class locally only where it means to differ. */
+
+/* the frame: a figure whose canvas fills the height the header and captions leave */
+:where(.viz) { margin: 0; display: flex; flex-direction: column; min-height: 0; }
+:where(.viz) .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
+:where(.viz) .canvas > svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
+
+/* text on the stage */
+:where(.viz) .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+:where(.viz) .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+:where(.viz) .tag { font-size: 10px; fill: var(--muted); }
+:where(.viz) .tag.strong, :where(.viz) .tag .strong { fill: var(--fg); font-weight: 600; }
+:where(.viz) .tag.onbox { fill: white; font-weight: 600; }
+:where(.viz) .mono { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
+:where(.viz) .mono.muted { fill: var(--muted); }
+:where(.viz) .mono.strong { font-weight: 600; }
+:where(.viz) .kname { font-family: var(--mono); font-size: 10px; fill: white; font-weight: 600; }
+:where(.viz) .steplabel { font-size: 10px; fill: white; font-weight: 600; }
+:where(.viz) .slab { font-size: 12px; fill: var(--fg); }
+:where(.viz) .slab.small { font-size: 11.5px; }
+:where(.viz) .slab.strong.small { font-size: 12px; font-weight: 650; }
+:where(.viz) .legend { font-size: 11.5px; fill: var(--fg); }
+:where(.viz) .legend .strong { font-weight: 650; }
+:where(.viz) .legend.muted { fill: var(--muted); }
+
+/* .footnote: grey, footnote-nature lines · always centred at the bottom of the stage (x = W/2, text-anchor middle), never marked
+   .pt: the small centre dot that marks each of several stacked statements; a single statement gets none */
+:where(.viz) .footnote { font-size: 10.5px; fill: var(--muted); }
+:where(.viz) .footnote .strong { fill: var(--fg); font-weight: 600; }
+:where(.viz) .pt { font-size: 11.5px; fill: var(--muted); font-weight: 700; }

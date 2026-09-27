@@ -1,8 +1,8 @@
 <script lang="ts">
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import StepControls from './StepControls.svelte';
-  import type { NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import type { NavLink } from '../../chapters';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- The "script": one entry per generation round -------------------------------------------
@@ -197,9 +197,6 @@
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
   .label { font-size: 11px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .tok { font-family: var(--mono); font-size: 13px; fill: var(--fg); }
   .id { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); }

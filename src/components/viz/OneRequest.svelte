@@ -1,12 +1,11 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import { chapters, type NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
+  import { W_GB, HBM_GB, BW, KB_PER_TOKEN as KB_TOK } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
   const CH_ENGINE = chNum('10-engine'), CH_TP = chNum('18-tensor-parallel'), CH_DISAGG = chNum('22-disaggregation');
 
-  const W_GB = 16, HBM_GB = 80, BW = 3.35, KB_TOK = 128;
   const tStep = W_GB / BW;                                  // ≈ 4.8 ms decode step, from chapter 4
   const RUNNING = Math.floor((HBM_GB - W_GB) / ((4096 * KB_TOK) / 1e6));   // chapter 7's cap at 4k context: 122
   const OPEN = 3000, WAITING = 41;                          // an example load: 3,000 tabs open, 41 just submitted
@@ -188,7 +187,7 @@
             {/if}
           {/if}
           {#if v === 0}
-            <text x="16" y="372" class="legend muted" in:fade={{ delay: 900 }}>weights loaded once; the KV pool is the {HBM_GB - W_GB} GB from chapter 7; the loop from chapter 6 is already spinning</text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 900 }}>weights loaded once; the KV pool is the {HBM_GB - W_GB} GB from chapter 7; the loop from chapter 6 is already spinning</text>
           {/if}
         </g>
       {/if}
@@ -236,12 +235,12 @@
           {#if multi}
             <g in:fade={{ delay: 1200 }}>
               <text x="16" y="300" class="legend">the GPU lane is solid: tokenizing the next prompt and detokenizing the last step's tokens happen <tspan class="strong">while</tspan> the current step runs</text>
-              <text x="16" y="322" class="legend muted">with tensor parallelism there is one scheduler process per GPU (chapter {CH_TP}); the server and detokenizer stay single</text>
+              <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">with tensor parallelism there is one scheduler process per GPU (chapter {CH_TP}); the server and detokenizer stay single</text>
             </g>
           {:else}
             <g in:fade={{ delay: 900 }}>
-              <text x="16" y="300" class="legend">GPU idle <tspan class="strong">{Math.round((singleIdle / singleTotal) * 100)}%</tspan> of the time, and the gaps are random: a long prompt to tokenize, a burst of clients to answer</text>
-              <text x="16" y="322" class="legend muted">a {fmt(tStep)} step can't afford to share its interpreter with anything that takes milliseconds</text>
+              <text x="18" y="300" class="pt">·</text><text x="28" y="300" class="legend">GPU idle <tspan class="strong">{Math.round((singleIdle / singleTotal) * 100)}%</tspan> of the time, and the gaps are random: a long prompt to tokenize, a burst of clients to answer</text>
+              <text x="18" y="322" class="pt">·</text><text x="28" y="322" class="legend">a {fmt(tStep)} step can't afford to share its interpreter with anything that takes milliseconds</text>
             </g>
           {/if}
         </g>
@@ -293,8 +292,8 @@
           {/if}
           <text x={QX + QW / 2} y="276" text-anchor="middle" class="tag">process 1 puts and moves on · process 2 takes everything at the top of its next step</text>
           <g in:fade={{ delay: 5600 }}>
-            <text x="40" y="318" class="legend">the same shape on every wire: scheduler → detokenizer, detokenizer → server</text>
-            <text x="40" y="340" class="legend muted">a Unix socket underneath, tens of microseconds; messages sit in the sender's queue until the receiver takes them</text>
+            <text x="30" y="318" class="pt">·</text><text x="40" y="318" class="legend">the same shape on every wire: scheduler → detokenizer, detokenizer → server</text>
+            <text x="30" y="340" class="pt">·</text><text x="40" y="340" class="legend">a Unix socket underneath, tens of microseconds; messages sit in the sender's queue until the receiver takes them</text>
           </g>
         </g>
       {/if}
@@ -388,36 +387,21 @@
             <text x="24" y="312" class="tag">a burst of requests breaks nothing: {RUNNING} run, {WAITING} wait, everyone else holds an open connection and a place in line</text>
             <text x="24" y="328" class="tag">clients feel a longer wait for the first token, not an error; past a configured queue length the server answers 429 instead</text>
           </g>
-          <text x="24" y="368" class="legend muted" in:fade={{ delay: 2000 }}>SGLang: <tspan class="mono">--max-running-requests</tspan> · <tspan class="mono">--max-queued-requests</tspan> · the line is <tspan class="mono">Scheduler.waiting_queue</tspan></text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 2000 }}>SGLang: <tspan class="mono">--max-running-requests</tspan> · <tspan class="mono">--max-queued-requests</tspan> · the line is <tspan class="mono">Scheduler.waiting_queue</tspan></text>
         </g>
       {/if}
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={4000} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
-  .mono { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
   .mono.strong { font-weight: 700; }
-  .tag { font-size: 10px; fill: var(--muted); }
-  .tag.strong, .tag .strong { fill: var(--fg); font-weight: 600; }
   .tag.muted { fill: var(--faint); }
-  .steplabel { font-size: 10px; fill: white; font-weight: 600; }
-  .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .slab { font-size: 12px; fill: var(--fg); }
-  .slab.small { font-size: 11.5px; }
-  .slab.strong.small { font-size: 12px; font-weight: 650; }
   .tile-value { font-size: 22px; font-weight: 650; fill: var(--fg); letter-spacing: -0.02em; }
   .tile-label { font-size: 10.5px; fill: var(--muted); }
   .tile-label.strong { fill: var(--fg); font-weight: 600; font-size: 11.5px; }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
-  .legend.muted { fill: var(--muted); }
   .seg { transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
   .stepfill { transform-box: fill-box; transform-origin: left center; animation: stepfill 4.4s linear forwards; }
   @keyframes stepfill { from { transform: scaleX(0); } to { transform: scaleX(1); } }

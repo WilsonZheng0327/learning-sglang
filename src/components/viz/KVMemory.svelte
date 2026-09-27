@@ -1,13 +1,12 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import { chapters, type NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import { chapterNumber as chNum, type NavLink } from '../../chapters';
+  import { W_GB, HBM_GB, KB_PER_TOKEN as KB_TOK, BW, TFLOPS as FLOPS, GFLOP_PER_TOKEN as GFLOP } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
   const CH_PREFIX = chNum('08-prefix-caching'), CH_DISAGG = chNum('22-disaggregation');
 
   // ---- Numbers, same as before: Llama-3-8B bf16 on one H100 ------------------------------------
-  const W_GB = 16, HBM_GB = 80, KB_TOK = 128, BW = 3.35, FLOPS = 989, GFLOP = 16;
   const tMem = W_GB / BW;
   const tComp = (n: number) => (n * GFLOP) / FLOPS;
   const BALANCE = Math.round(tMem / tComp(1) / 50) * 50;
@@ -115,7 +114,7 @@
             <path d="M {xUsed + 2} {BAR.y - 8} V {BAR.y - 16} H {xEnd} V {BAR.y - 8}" fill="none" stroke="var(--gen)" stroke-width="1.5" />
             <text x={(xUsed + xEnd) / 2} y={BAR.y - 22} text-anchor="middle" class="tag strong" fill="var(--gen)">empty right now · {(HBM_GB - W_GB - usedGB).toFixed(0)} GB</text>
           </g>
-          <text x={BAR.x} y={BAR.y + 110} class="legend muted" in:fade={{ delay: 2100 }}>each running request grows {KB_TOK} KB per step; the empty part is what newcomers can be admitted into</text>
+          <text x={BAR.x} y={BAR.y + 110} class="legend" in:fade={{ delay: 2100 }}>each running request grows {KB_TOK} KB per step; the empty part is what newcomers can be admitted into</text>
         </g>
       {/if}
 
@@ -138,7 +137,10 @@
               <text x={BAR.x + BAR.w} y={y + h + 16} text-anchor="end" class="legend"><tspan class="strong">{n} requests</tspan> fit</text>
             </g>
           {/each}
-          <text x={BAR.x} y="366" class="legend muted" in:fade={{ delay: 1400 }}>chapter 5's sweet spot was {BALANCE} requests decoding at once; the most this card ever holds is {capAt(4096)}, and that's at a short context</text>
+          <g in:fade={{ delay: 1400 }}>
+            <text x={BAR.x} y="360" class="legend">chapter 5's sweet spot was {BALANCE} requests decoding at once;</text>
+            <text x={BAR.x} y="378" class="legend">the most this card ever holds is {capAt(4096)}, and that's at a short context</text>
+          </g>
         </g>
       {/if}
 
@@ -243,8 +245,8 @@
             {/if}
             {#if phase >= 4}
               <g in:fade>
-                <text x={PG.x} y={PG.y + ROWS * (CELL + GAP) + 26} class="legend"><tspan class="strong">{cur.name}'s page table:</tspan> {alloc.join(', ')}</text>
-                <text x={PG.x} y={PG.y + ROWS * (CELL + GAP) + 48} class="legend muted">attention reads the cache through this list; nothing needs to be next to anything</text>
+                <text x={PG.x - 10} y={PG.y + ROWS * (CELL + GAP) + 26} class="pt">·</text><text x={PG.x} y={PG.y + ROWS * (CELL + GAP) + 26} class="legend"><tspan class="strong">{cur.name}'s page table:</tspan> {alloc.join(', ')}</text>
+                <text x={PG.x - 10} y={PG.y + ROWS * (CELL + GAP) + 48} class="pt">·</text><text x={PG.x} y={PG.y + ROWS * (CELL + GAP) + 48} class="legend">attention reads the cache through this list; nothing needs to be next to anything</text>
               </g>
             {/if}
           {:else}
@@ -270,6 +272,8 @@
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#b8b4aa" />
             </marker>
           </defs>
+          <!-- everything above the footnote, lifted to leave it clear space -->
+          <g transform="translate(0 -8)">
           <text x="40" y="52" class="rowlabel">admitting a newcomer</text>
           <g in:fly={{ y: 8, duration: 300 }}>
             <rect x="40" y="70" width="290" height="56" rx="12" fill="white" stroke="var(--fg)" stroke-width="1.5" />
@@ -296,7 +300,7 @@
 
           <!-- what a request holds: a list of page numbers -->
           <g in:fade={{ delay: 900 }}>
-            <rect x="350" y="70" width="350" height="318" rx="12" fill="#fbfaf7" stroke={owners[6]} />
+            <rect x="350" y="70" width="350" height="306" rx="12" fill="#fbfaf7" stroke={owners[6]} />
             <text x="366" y="94" class="boxtitle">what req 7 holds</text>
             <text x="366" y="118" class="slab small">not a region of memory, a <tspan class="strong">page table</tspan>:</text>
             {#each allocB as pg, k}
@@ -313,37 +317,26 @@
               <rect {x} {y} width={MC} height={MC} rx="2" fill={mine ? owners[6] : o < 0 ? 'white' : '#e6e3db'} stroke={mine ? 'none' : o < 0 ? 'var(--line)' : 'none'} opacity={mine ? 0.95 : 1} />
               {#if mine}<text x={x + MC / 2} y={y + MC - 3.5} text-anchor="middle" class="tiny">{allocB.indexOf(i) + 1}</text>{/if}
             {/each}
-            <text x="366" y="328" class="tag">attention walks the list in order;</text>
-            <text x="366" y="344" class="tag">the pages never need to be adjacent</text>
-            <text x="366" y="364" class="tag muted">same page in two lists → chapter {CH_PREFIX}</text>
-            <text x="366" y="380" class="tag muted">a list sent to another GPU → chapter {CH_DISAGG}</text>
+            <text x="366" y="318" class="tag">attention walks the list in order;</text>
+            <text x="366" y="332" class="tag">the pages never need to be adjacent</text>
+            <text x="366" y="352" class="tag muted">same page in two lists → chapter {CH_PREFIX}</text>
+            <text x="366" y="366" class="tag muted">a list sent to another GPU → chapter {CH_DISAGG}</text>
           </g>
-          <text x="40" y="394" class="tag muted" in:fade={{ delay: 1500 }}>SGLang: <tspan class="mono">TokenToKVPool</tspan> · <tspan class="mono">req_to_token</tspan> · <tspan class="mono">retract_decode</tspan></text>
+          </g>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1500 }}>SGLang: <tspan class="mono">TokenToKVPool</tspan> · <tspan class="mono">req_to_token</tspan> · <tspan class="mono">retract_decode</tspan></text>
         </g>
       {/if}
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={4200} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .mono { font-family: var(--mono); font-size: 10px; }
-  .tag { font-size: 10px; fill: var(--muted); }
-  .tag.strong, .tag .strong { fill: var(--fg); font-weight: 600; }
-  .steplabel { font-size: 10px; fill: white; font-weight: 600; }
   .tiny { font-size: 8px; fill: white; font-weight: 700; }
-  .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .tag.muted { fill: var(--faint); }
-  .slab { font-size: 12px; fill: var(--fg); }
   .slab.strong { font-weight: 650; font-size: 14px; }
-  .slab.small { font-size: 11.5px; }
   .slab.strong.small { font-size: 12px; }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
   .legend.muted, .legend .muted { fill: var(--muted); font-weight: 400; }
 </style>

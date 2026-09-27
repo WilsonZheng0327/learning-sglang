@@ -1,15 +1,13 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import { chapters, type NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
+  import { W_GB, BW, LAYERS } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
   const CH_NEXT = chNum('12-piecewise-cuda-graph');
 
   // ---- Numbers: Llama-3-8B bf16 on one H100, as in chapters 4 to 10 ----------------------------------
-  const W_GB = 16, BW = 3.35;
   const tMem = W_GB / BW;                                  // 4.8 ms: the GPU work of a decode step at small batch
-  const LAYERS = 32;
   const KERNELS = 1000;
   const LAUNCH_US = 9;
   const launchMs = (KERNELS * LAUNCH_US) / 1000;           // 9 ms of CPU per step
@@ -146,9 +144,9 @@
               <text x={BAR.x + ENDS.embed + layersW / 2} y={BAR.y + BAR.h + 16} text-anchor="middle" class="tag strong">{LAYERS} layers, identical in shape, different weights</text>
               <text x={BAR.x + BAR.w} y={BAR.y + BAR.h + 16} text-anchor="end" class="tag">lm_head · sample</text>
               <g in:fade={{ delay: 1400 }}>
-                <text x={BAR.x} y="180" class="legend">the model, once: <tspan class="strong">ids → embedding → layer 1 → layer 2 → … → layer {LAYERS} → logits → one token</tspan></text>
-                <text x={BAR.x} y="204" class="legend muted">every layer reads its slice of the 16 GB of weights (chapter 4) and its slice of the KV cache (chapter 3)</text>
-                <text x={BAR.x} y="236" class="legend muted">each layer is a few hundred microseconds; the picture is about to get finer</text>
+                <text x={BAR.x - 10} y="180" class="pt">·</text><text x={BAR.x} y="180" class="legend">the model, once: <tspan class="strong">ids → embedding → layer 1 → layer 2 → … → layer {LAYERS} → logits → one token</tspan></text>
+                <text x={BAR.x - 10} y="204" class="pt">·</text><text x={BAR.x} y="204" class="legend">every layer reads its slice of the 16 GB of weights (chapter 4) and its slice of the KV cache (chapter 3)</text>
+                <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">each layer is a few hundred microseconds; the picture is about to get finer</text>
               </g>
             </g>
           {/if}
@@ -182,8 +180,8 @@
             <rect x="530" y="234" width="12" height="12" rx="2" fill="#8a8780" /><text x="548" y="244" class="tag">everything else</text>
           </g>
           <g in:fade={{ delay: 1600 }}>
-            <text x="16" y="296" class="legend">{layerOps.length} × {LAYERS} = {layerOps.length * LAYERS}, plus the ends and every small PyTorch op between them: <tspan class="strong">about {KERNELS.toLocaleString()} kernels a step</tspan></text>
-            <text x="16" y="320" class="legend muted">at batch size 1 the average one runs for about {(tMem * 1000 / KERNELS).toFixed(0)} µs. Keep that number in mind.</text>
+            <text x="18" y="296" class="pt">·</text><text x="28" y="296" class="legend">{layerOps.length} × {LAYERS} = {layerOps.length * LAYERS}, plus the ends and every small PyTorch op between them: <tspan class="strong">about {KERNELS.toLocaleString()} kernels a step</tspan></text>
+            <text x="18" y="320" class="pt">·</text><text x="28" y="320" class="legend">at batch size 1 the average one runs for about {(tMem * 1000 / KERNELS).toFixed(0)} µs. Keep that number in mind.</text>
           </g>
         </g>
       {/if}
@@ -223,8 +221,8 @@
           {#each [0, 2, 4, 6, 8, 10] as ms}<text x={X0 + ms * px} y="270" text-anchor="middle" class="tag">{ms} ms</text>{/each}
           <g in:fade={{ delay: 1500 }}>
             {#if !graph}
-              <text x="16" y="318" class="legend">the GPU finishes each {(tMem * 1000 / KERNELS).toFixed(0)} µs kernel before the CPU has launched the next one, and idles in between</text>
-              <text x="16" y="340" class="legend muted">this is why batch-1 decode in plain PyTorch runs at roughly half the speed the memory bandwidth allows</text>
+              <text x="18" y="318" class="pt">·</text><text x="28" y="318" class="legend">the GPU finishes each {(tMem * 1000 / KERNELS).toFixed(0)} µs kernel before the CPU has launched the next one, and idles in between</text>
+              <text x="18" y="340" class="pt">·</text><text x="28" y="340" class="legend">this is why batch-1 decode in plain PyTorch runs at roughly half the speed the memory bandwidth allows</text>
             {:else}
               <text x="16" y="318" class="legend">the recording played back: <tspan class="mono">graph.replay()</tspan>, one driver call, no Python in the loop</text>
             {/if}
@@ -274,8 +272,8 @@
             <text x="404" y="302" text-anchor="middle" class="tag">one sync at the end of the step · the CPU reads the logits</text>
           </g>
 
-          <text x="16" y="342" class="legend">nothing comes back per kernel — the launches go one way, a thousand of them: <tspan class="strong">{LAUNCH_US} µs to ask, {kernelUs} µs to run</tspan></text>
-          <text x="16" y="364" class="legend muted">so the GPU's {fmt(tMem)} of real work is stretched over {fmt(launchMs)} of launching, idle in every gap</text>
+          <text x="18" y="342" class="pt">·</text><text x="28" y="342" class="legend">nothing comes back per kernel — the launches go one way, a thousand of them: <tspan class="strong">{LAUNCH_US} µs to ask, {kernelUs} µs to run</tspan></text>
+          <text x="18" y="364" class="pt">·</text><text x="28" y="364" class="legend">so the GPU's {fmt(tMem)} of real work is stretched over {fmt(launchMs)} of launching, idle in every gap</text>
         </g>
       {/if}
 
@@ -315,8 +313,8 @@
             <text x="638" y="200" text-anchor="middle" class="tag">runs yet</text>
           </g>
 
-          <text x="16" y="342" class="legend">an entry pins the kernel, the addresses it reads and writes, and the row count — <tspan class="strong">no Python left in it</tspan></text>
-          <text x="16" y="364" class="legend muted">the engine records once per rung at startup, not once per step</text>
+          <text x="18" y="342" class="pt">·</text><text x="28" y="342" class="legend">an entry pins the kernel, the addresses it reads and writes, and the row count — <tspan class="strong">no Python left in it</tspan></text>
+          <text x="18" y="364" class="pt">·</text><text x="28" y="364" class="legend">the engine records once per rung at startup, not once per step</text>
         </g>
       {/if}
 
@@ -357,8 +355,8 @@
           <text x="272" y="302" class="tag">… {KERNELS.toLocaleString()} entries</text>
           <text x="592" y="302" class="tag">… back to back</text>
 
-          <text x="16" y="342" class="legend">every address was baked in at record time, so there is <tspan class="strong">nothing to pass and nothing to decide</tspan></text>
-          <text x="16" y="364" class="legend muted">{fmt(launchMs)} of CPU became {REPLAY_US} µs. The GPU's {fmt(tMem)} is unchanged — and now it is the whole step.</text>
+          <text x="18" y="342" class="pt">·</text><text x="28" y="342" class="legend">every address was baked in at record time, so there is <tspan class="strong">nothing to pass and nothing to decide</tspan></text>
+          <text x="18" y="364" class="pt">·</text><text x="28" y="364" class="legend">{fmt(launchMs)} of CPU became {REPLAY_US} µs. The GPU's {fmt(tMem)} is unchanged — and now it is the whole step.</text>
         </g>
       {/if}
 
@@ -406,8 +404,8 @@
           </g>
 
           <g in:fade={{ delay: 2000 }}>
-            <text x="30" y="332" class="legend">no error, no crash: shapes aren't arguments to <tspan class="mono">replay()</tspan>, they're inside the recording, so <tspan class="strong">CUDA has nothing to check</tspan></text>
-            <text x="30" y="354" class="legend muted">the guard has to sit above it, in the engine — which is what the next two steps are</text>
+            <text x="20" y="332" class="pt">·</text><text x="30" y="332" class="legend">no error, no crash: shapes aren't arguments to <tspan class="mono">replay()</tspan>, they're inside the recording, so <tspan class="strong">CUDA has nothing to check</tspan></text>
+            <text x="20" y="354" class="pt">·</text><text x="30" y="354" class="legend">the guard has to sit above it, in the engine — which is what the next two steps are</text>
           </g>
         </g>
       {/if}
@@ -439,7 +437,7 @@
               <text x={x + 21} y="282" text-anchor="middle" class="cell">{B}</text>
             {/each}
             <text x="40" y="316" class="tag"><tspan class="mono">Capture cuda graph bs [{CAPTURED.join(', ')}]</tspan> · a few seconds, once</text>
-            <text x="40" y="352" class="legend muted">rungs are closer together at small sizes, where a step is cheapest and padding would waste the most</text>
+            <text x="40" y="352" class="legend">rungs are closer together at small sizes, where a step is cheapest and padding would waste the most</text>
           </g>
         </g>
       {/if}
@@ -481,7 +479,7 @@
             {/each}
             <text x={40 + (RUN * CW) / 2} y="340" text-anchor="middle" class="tag" fill="#16a34a">{RUN} → the sampler</text>
             <text x={40 + RUN * CW + ((RUNG - RUN) * CW) / 2} y="340" text-anchor="middle" class="tag" fill="var(--eos)">{RUNG - RUN} dropped</text>
-            <text x="40" y="368" class="legend muted">{RUNG - RUN} wasted rows of a memory-bound step cost almost nothing; a thousand launches would have cost {fmt(launchMs)}</text>
+            <text x="40" y="368" class="legend">{RUNG - RUN} wasted rows of a memory-bound step cost almost nothing; a thousand launches would have cost {fmt(launchMs)}</text>
           </g>
         </g>
       {/if}
@@ -575,8 +573,8 @@
           {/each}
 
           <g in:fade={{ delay: 2100 }}>
-            <text x="16" y="360" class="legend">each shaded band is <tspan class="strong">one buffer</tspan> — the same memory at three moments, not three different places</text>
-            <text x="16" y="380" class="legend muted">step t's sampled column is step t+1's ids column: the same {B_EX} slots overwritten in place, one request followed in blue</text>
+            <text x="18" y="360" class="pt">·</text><text x="28" y="360" class="legend">each shaded band is <tspan class="strong">one buffer</tspan> — the same memory at three moments, not three different places</text>
+            <text x="18" y="380" class="pt">·</text><text x="28" y="380" class="legend">step t's sampled column is step t+1's ids column: the same {B_EX} slots overwritten in place, one request followed in blue</text>
           </g>
         </g>
       {/if}
@@ -599,36 +597,20 @@
             </g>
           {/each}
           <g in:fade={{ delay: 1100 }}>
-            <text x="30" y="312" class="legend muted">SGLang: <tspan class="mono">--enable-piecewise-cuda-graph</tspan> · <tspan class="mono">--enable-torch-compile</tspan></text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang: <tspan class="mono">--enable-piecewise-cuda-graph</tspan> · <tspan class="mono">--enable-torch-compile</tspan></text>
           </g>
         </g>
       {/if}
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={4200} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .cell { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
-  .mono { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
-  .mono.muted { fill: var(--muted); }
-  .tag { font-size: 10px; fill: var(--muted); }
   .tag.strong, .tag .strong, .mono .strong { fill: var(--fg); font-weight: 600; }
-  .steplabel { font-size: 10px; fill: white; font-weight: 600; }
-  .kname { font-family: var(--mono); font-size: 10px; fill: white; font-weight: 600; }
-  .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .slab { font-size: 12px; fill: var(--fg); }
-  .slab.small { font-size: 11.5px; }
-  .slab.strong.small { font-size: 12px; font-weight: 650; }
   .verdict { font-size: 20px; font-weight: 700; }
   .ours { fill: var(--accent); font-weight: 700; }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
-  .legend.muted { fill: var(--muted); }
   .zoomrect { transform-box: fill-box; transform-origin: 0 0; transition: transform 800ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 </style>

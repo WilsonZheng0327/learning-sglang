@@ -1,11 +1,10 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import { chapters, type NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
+  import { W_GB, BW } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
   const CH_CUDA = chNum('11-cuda-graphs'), CH_DISAGG = chNum('22-disaggregation');
-  const W_GB = 16, BW = 3.35;
   const tStep = W_GB / BW;
   const fmt = (ms: number) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms';
 
@@ -222,7 +221,8 @@
           <rect x={OL.x} y="330" width="12" height="12" rx="2" fill="var(--accent)" opacity="0.85" /><text x={OL.x + 18} y="340" class="tag">plan: recv · schedule · flatten · launch kernels</text>
           <rect x={OL.x + 290} y="330" width="12" height="12" rx="2" fill="#0891b2" opacity="0.9" /><text x={OL.x + 308} y="340" class="tag">results: append tokens · finish Reqs · send</text>
           <g in:fade={{ delay: 1400 }}>
-            <text x="16" y="372" class="legend">the GPU lane is solid: {fmt(plan + res)} of Python per step comes off the critical path, about {Math.round(((plan + res) / (plan + res + g)) * 100)}% more tokens per second on the same GPU</text>
+            <text x="16" y="362" class="legend">the GPU lane is solid: {fmt(plan + res)} of Python per step comes off the critical path,</text>
+            <text x="16" y="380" class="legend">about {Math.round(((plan + res) / (plan + res + g)) * 100)}% more tokens per second on the same GPU</text>
           </g>
         </g>
       {/if}
@@ -253,10 +253,10 @@
             {/each}
           </g>
           <g in:fade={{ delay: 1700 }}>
-            <text x="30" y="316" class="legend">the CPU never waits for the token and never copies it back; it hands out slot numbers and lets the GPU fill and read them</text>
-            <text x="30" y="338" class="legend muted">only the bookkeeping waits for a copy: appending the id to the Req and checking for EOS,</text>
-            <text x="30" y="356" class="legend muted">and that happens in the results phase, one step behind the GPU</text>
-            <text x="30" y="382" class="tag muted">SGLang: <tspan class="mono">TpModelWorkerClient</tspan> · <tspan class="mono">future_token_ids_map</tspan> · <tspan class="mono">resolve_future_token_ids</tspan></text>
+            <text x="20" y="316" class="pt">·</text><text x="30" y="316" class="legend">the CPU never waits for the token and never copies it back; it hands out slot numbers and lets the GPU fill and read them</text>
+            <text x="20" y="338" class="pt">·</text><text x="30" y="338" class="legend">only the bookkeeping waits for a copy: appending the id to the Req and checking for EOS,</text>
+            <text x="30" y="356" class="legend">and that happens in the results phase, one step behind the GPU</text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang: <tspan class="mono">TpModelWorkerClient</tspan> · <tspan class="mono">future_token_ids_map</tspan> · <tspan class="mono">resolve_future_token_ids</tspan></text>
           </g>
         </g>
       {/if}
@@ -286,31 +286,21 @@
               <text x="609" y={68 + i * 23} class="tag strong" fill="var(--accent)">ch {ch}</text>
             </g>
           {/each}
-          <text x="16" y="386" class="legend muted" in:fade={{ delay: 1000 }}>every chapter so far is one file. The rest of the site is what those files do when the model doesn't fit on one GPU, or one machine.</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1000 }}>every chapter so far is one file. The rest of the site is what those files do when the model doesn't fit on one GPU, or one machine.</text>
         </g>
       {/if}
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={4200} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .mono { font-family: var(--mono); font-size: 10.5px; fill: var(--fg); }
-  .tag { font-size: 10px; fill: var(--muted); }
-  .tag.strong, .tag .strong { fill: var(--fg); font-weight: 600; }
   .tiny { font-size: 8.5px; fill: white; font-weight: 600; }
   .tag.muted { fill: var(--faint); }
   .tiny.dark { fill: var(--fg); font-weight: 400; font-family: var(--mono); }
-  .steplabel { font-size: 10px; fill: white; font-weight: 600; }
-  .slab { font-size: 12px; fill: var(--fg); }
   .slab.strong { font-weight: 650; font-size: 14px; }
   .slab.strong.small { font-size: 12px; }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend.muted { fill: var(--muted); }
   .req { transition: transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 </style>

@@ -9,7 +9,9 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "shot": "node scripts/shot.mjs",
+    "transcript": "node scripts/transcript.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.3.1",

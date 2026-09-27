@@ -1,13 +1,12 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import { chapters, type NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import { chapterNumber as chNum, type NavLink } from '../../chapters';
+  import { W_GB, BW, TFLOPS as FLOPS, GFLOP_PER_TOKEN as GFLOP } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
   const CH_NEXT = chNum('09-one-request');
 
   // ---- Numbers ----------------------------------------------------------------------------------
-  const W_GB = 16, BW = 3.35, FLOPS = 989, GFLOP = 16;
   const tMem = W_GB / BW;
   const tComp = (n: number) => (n * GFLOP) / FLOPS;
   const stepMs = (n: number) => Math.max(tMem, tComp(n));
@@ -163,7 +162,7 @@
             <text x={PG.x} y={ty + 22} class="legend" in:fade><tspan class="strong" fill={colB}>B</tspan>: <tspan fill={colA} font-weight="600">{A_SHARED.join(', ')}</tspan> <tspan class="muted">|</tspan> {B_TAIL.join(', ')} <tspan class="muted">· shared pages: 2 owners · B prefilled {TAIL_B} tokens, not {SHARED + TAIL_B}</tspan></text>
           {/if}
           {#if v === 2}
-            <text x={PG.x} y={ty + 46} class="legend muted" in:fade={{ delay: 1300 }}>this is why it's a prefix cache and not a substring cache: the match has to start at token 1</text>
+            <text x={PG.x} y={ty + 46} class="legend" in:fade={{ delay: 1300 }}>this is why it's a prefix cache and not a substring cache: the match has to start at token 1</text>
           {/if}
         </g>
       {/if}
@@ -230,7 +229,7 @@
             <g in:fade={{ delay: 1100 }}>
               <text x="400" y={NEW.y - 4} class="legend"><tspan class="strong">matched {matched}</tspan> of {newTotal} tokens → prefill only <tspan class="strong">{NEW.tokens}</tspan></text>
               <text x="400" y={NEW.y + 16} class="legend">first token: <tspan class="strong">{fmt(stepMs(NEW.tokens))}</tspan> instead of {fmt(stepMs(newTotal))}</text>
-              <text x="16" y="372" class="legend muted">pages needed at admission: {pagesFor(NEW.tokens)} for the tail, not {pagesFor(newTotal)}. The tree pays twice: less prefill and less memory.</text>
+              <text x="16" y="372" class="legend">pages needed at admission: {pagesFor(NEW.tokens)} for the tail, not {pagesFor(newTotal)}. The tree pays twice: less prefill and less memory.</text>
             </g>
           {:else}
             {#if phase >= 2}
@@ -240,7 +239,7 @@
               </g>
             {/if}
             <g in:fade={{ delay: 2400 }}>
-              <text x="16" y="372" class="legend muted">a node's pages are reclaimable when its reference count is zero; running requests keep their whole path pinned</text>
+              <text x="16" y="372" class="legend">a node's pages are reclaimable when its reference count is zero; running requests keep their whole path pinned</text>
             </g>
           {/if}
         </g>
@@ -283,8 +282,8 @@
             </g>
           {/each}
           <g in:fade={{ delay: 1200 }}>
-            <text x={bx} y="306" class="legend">three turns: <tspan class="strong">{noTreeTotal.toLocaleString()}</tspan> prompt tokens prefilled without the tree, <tspan class="strong" fill="var(--accent)">{treeTotal}</tspan> with it</text>
-            <text x={bx} y="328" class="legend muted">the answer gets cached too: it's the prefix of the next turn. Nothing is ever prefilled twice.</text>
+            <text x={bx - 10} y="306" class="pt">·</text><text x={bx} y="306" class="legend">three turns: <tspan class="strong">{noTreeTotal.toLocaleString()}</tspan> prompt tokens prefilled without the tree, <tspan class="strong" fill="var(--accent)">{treeTotal}</tspan> with it</text>
+            <text x={bx - 10} y="328" class="pt">·</text><text x={bx} y="328" class="legend">the answer gets cached too: it's the prefix of the next turn. Nothing is ever prefilled twice.</text>
           </g>
         </g>
       {/if}
@@ -321,33 +320,22 @@
           <g in:fade={{ delay: 1400 }}>
             <rect x="162" y="366" width="12" height="12" rx="2" fill="var(--accent-soft)" stroke="var(--accent)" /><text x="180" y="376" class="tag">already in the tree</text>
             <rect x="296" y="366" width="12" height="12" rx="2" fill="var(--accent)" opacity="0.9" /><text x="314" y="376" class="tag">must be prefilled</text>
-            <text x="690" y="376" text-anchor="end" class="tag muted">SGLang: <tspan class="mono">schedule_policy=lpm</tspan></text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang: <tspan class="mono">schedule_policy=lpm</tspan></text>
           </g>
         </g>
       {/if}
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={3800} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .cell { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
   .mono { font-family: var(--mono); font-size: 10px; }
   .tiny { font-size: 9px; fill: white; font-weight: 700; }
-  .tag { font-size: 10px; fill: var(--muted); }
-  .tag.strong, .tag .strong { fill: var(--fg); font-weight: 600; }
-  .steplabel { font-size: 10px; fill: white; font-weight: 600; }
-  .slab { font-size: 12px; fill: var(--fg); }
   .slab.strong { font-weight: 650; font-size: 14px; }
-  .slab.small { font-size: 11.5px; }
   .slab.strong.small { font-size: 12px; }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
   .legend.muted, .legend .muted { fill: var(--muted); font-weight: 400; }
   .tag.muted { fill: var(--faint); }
   .fadeable { transition: opacity 500ms; }

@@ -1,8 +1,9 @@
 <script lang="ts">
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import StepControls from './StepControls.svelte';
-  import type { NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import type { NavLink } from '../../chapters';
+  import { KB_PER_TOKEN } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- Data --------------------------------------------------------------------------------
@@ -17,7 +18,6 @@
     return e.map((v) => v / s);
   };
   // Llama-3-8B-ish: 32 layers, 8 kv heads, head dim 128, bf16, k and v.
-  const KB_PER_TOKEN = (32 * 8 * 128 * 2 * 2) / 1024;
 
   // ---- Script -------------------------------------------------------------------------------
   interface Step {
@@ -178,11 +178,11 @@
       <!-- Cost readout -->
       {#if cur.cost}
         <g in:fade>
-          <text x="16" y={CACHE.y + CACHE.h + 24} class="legend">
+          <text x="18" y={CACHE.y + CACHE.h + 24} class="pt">·</text><text x="28" y={CACHE.y + CACHE.h + 24} class="legend">
             <tspan class="strong">{cur.cached} tokens × {KB_PER_TOKEN} KB</tspan> = {cacheKB.toLocaleString()} KB
             <tspan class="muted">   (32 layers · 8 kv heads · 128 dims · k and v · 2 bytes)</tspan>
           </text>
-          <text x="16" y={CACHE.y + CACHE.h + 44} class="legend muted" in:fade={{ delay: 500 }}>
+          <text x="18" y={CACHE.y + CACHE.h + 44} class="pt">·</text><text x="28" y={CACHE.y + CACHE.h + 44} class="legend" in:fade={{ delay: 500 }}>
             at 8k tokens: <tspan class="strong">{((8192 * KB_PER_TOKEN) / 1024 / 1024).toFixed(0)} GB</tspan>, for one sequence. Keep that number in mind.
           </text>
         </g>
@@ -190,23 +190,16 @@
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} interval={2800} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .rowlabel .eq { fill: var(--faint); }
   .tok { font-family: var(--mono); font-size: 12.5px; fill: var(--fg); }
   .cell { font-family: var(--mono); font-size: 10.5px; fill: var(--fg); }
   .cellg { transition: opacity 300ms; }
   .num { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
-  .tag { font-size: 10px; fill: var(--muted); }
   .tag.strong { fill: var(--accent); font-weight: 600; }
   .tag.strong.gen { fill: var(--gen); }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
   .legend .muted, .legend.muted { fill: var(--muted); }
 </style>

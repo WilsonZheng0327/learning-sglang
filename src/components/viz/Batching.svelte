@@ -1,11 +1,11 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import type { NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import type { NavLink } from '../../chapters';
+  import { W_GB, BW, TFLOPS as FLOPS, GFLOP_PER_TOKEN } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- Numbers, same as chapter 4: Llama-3-8B bf16 on one H100 -----------------------------
-  const W_GB = 16, BW = 3.35, FLOPS = 989, GFLOP_PER_TOKEN = 16;
   const tMem = W_GB / BW;                                   // ms per step just to read the weights
   const tComp = (n: number) => (n * GFLOP_PER_TOKEN) / FLOPS;
   const stepMs = (B: number) => Math.max(tMem, tComp(B));
@@ -263,13 +263,14 @@
             </g>
           {/if}
           <g in:fade={{ delay: 900 }}>
-            <text x={G.x} y={sy} class="legend">tokens produced: <tspan class="strong">{sim.tokens}</tspan> · idle slot-steps: <tspan class="strong">{sim.idle}</tspan> of {SLOTS * T}</text>
+            <text x={G.x - 10} y={sy} class="pt">·</text><text x={G.x} y={sy} class="legend">tokens produced: <tspan class="strong">{sim.tokens}</tspan> · idle slot-steps: <tspan class="strong">{sim.idle}</tspan> of {SLOTS * T}</text>
             {#if cur.highlight}
-              <text x={G.x} y={sy + 22} class="legend muted">{sim.wide.filter(Boolean).length} of {T} steps carry a prefill. In each one, every other slot's token only comes out when the whole pass, prompt included, is done.</text>
+              <text x={G.x - 10} y={sy + 22} class="pt">·</text><text x={G.x} y={sy + 22} class="legend">{sim.wide.filter(Boolean).length} of {T} steps carry a prefill. In each one, every other slot's token only comes out</text>
+              <text x={G.x} y={sy + 40} class="legend">when the whole pass, prompt included, is done.</text>
             {:else if cur.mode === 'continuous'}
-              <text x={G.x} y={sy + 22} class="legend muted">same {T} steps: {Math.round(((sim.tokens - sims.static.tokens) / sims.static.tokens) * 100)}% more tokens than static, and request 7 started at step {sims.continuous.grid.flat().length ? requests.reduce((m, r) => Math.min(m, r.answer), 99) + 1 : 0} instead of {batchEnd}.</text>
+              <text x={G.x - 10} y={sy + 22} class="pt">·</text><text x={G.x} y={sy + 22} class="legend">same {T} steps: {Math.round(((sim.tokens - sims.static.tokens) / sims.static.tokens) * 100)}% more tokens than static, and request 7 started at step {sims.continuous.grid.flat().length ? requests.reduce((m, r) => Math.min(m, r.answer), 99) + 1 : 0} instead of {batchEnd}.</text>
             {:else}
-              <text x={G.x} y={sy + 22} class="legend muted">request 7 can't start until request 3 finishes at step {batchEnd}. Slot 5 sat idle for {batchEnd - requests[4].answer - 1} of those steps.</text>
+              <text x={G.x - 10} y={sy + 22} class="pt">·</text><text x={G.x} y={sy + 22} class="legend">request 7 can't start until request 3 finishes at step {batchEnd}. Slot 5 sat idle for {batchEnd - requests[4].answer - 1} of those steps.</text>
             {/if}
           </g>
         </g>
@@ -277,27 +278,16 @@
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={3200} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .cell { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
   .cellg { transition: opacity 300ms; }
-  .tag { font-size: 10px; fill: var(--muted); }
   .tag.strong { fill: var(--fg); font-weight: 600; }
-  .steplabel { font-size: 10px; fill: white; font-weight: 600; }
-  .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .slab { font-size: 12px; fill: var(--fg); }
   .slab.strong { font-weight: 650; font-size: 14px; }
   .tile-value { font-size: 20px; font-weight: 650; fill: var(--fg); letter-spacing: -0.02em; }
   .tile-label { font-size: 10.5px; fill: var(--muted); }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
-  .legend.muted { fill: var(--muted); }
   .bar { transform-box: fill-box; transform-origin: left center; transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1), fill 300ms; }
   .wire { stroke: var(--line); stroke-width: 6; stroke-linecap: round; }
 </style>

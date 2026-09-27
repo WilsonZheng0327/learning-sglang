@@ -1,8 +1,8 @@
 <script lang="ts">
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import StepControls from './StepControls.svelte';
-  import type { NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import type { NavLink } from '../../chapters';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- Data --------------------------------------------------------------------------------
@@ -206,20 +206,16 @@
           <text x="58" y={ly + 31} class="legend"><tspan class="strong">not needed</tspan>: the old queries. Each one was used once, on its own step.</text>
           <rect x="16" y={ly + 50} width="14" height="14" rx="3" fill="white" stroke="var(--gen)" stroke-width="2" />
           <text x="58" y={ly + 61} class="legend"><tspan class="strong">new</tspan>: q, k, v for the token that just arrived.</text>
-          <text x="16" y={ly + 100} class="legend muted" in:fade={{ delay: 700 }}>per head, per layer: {PROMPT_N * 2} vectors recomputed that were already known. A 32-layer, 32-head model does this 1024 times per step.</text>
+          <text x="16" y={ly + 100} class="legend" in:fade={{ delay: 700 }}>per head, per layer: {PROMPT_N * 2} vectors recomputed that were already known. A 32-layer, 32-head model does this 1024 times per step.</text>
         </g>
       {/if}
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} interval={2600} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .rowlabel .eq { fill: var(--faint); }
   .sub { font-size: 8px; baseline-shift: sub; }
   .tok { font-family: var(--mono); font-size: 12.5px; fill: var(--fg); }
@@ -227,11 +223,7 @@
   .cellg { transition: opacity 300ms; }
   .badge { font-family: var(--mono); font-size: 10px; font-weight: 700; }
   .num { font-family: var(--mono); font-size: 10.5px; fill: var(--fg); }
-  .tag { font-size: 10px; fill: var(--muted); }
   .tag.new { fill: var(--gen); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: 9px; }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
-  .legend.muted { fill: var(--muted); }
   rect.pulse { animation: pulse 700ms ease-in-out 2; }
   @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }
 </style>

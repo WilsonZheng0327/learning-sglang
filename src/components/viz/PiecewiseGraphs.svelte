@@ -1,16 +1,14 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import { chapters, type NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
+  import { W_GB, BW, LAYERS } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
   const CH_NEXT = chNum('13-torch-compile');
   const CH_TP = chNum('18-tensor-parallel');
 
   // ---- Numbers: Llama-3-8B bf16 on one H100, continuing chapters 4 and 11 ------------------------------
-  const W_GB = 16, BW = 3.35;
   const tMem = W_GB / BW;                          // 4.8 ms: the weight read, the floor under any step
-  const LAYERS = 32;
   const KERNELS = 1000, LAUNCH_US = 9;
   const launchMs = (KERNELS * LAUNCH_US) / 1000;   // 9 ms of CPU to launch a step kernel by kernel
   const US_PER_TOKEN = 16;                         // 2·8e9 FLOPs per token at ~1 PFLOP/s, as in chapter 4
@@ -139,7 +137,7 @@
 
           <g in:fade={{ delay: 900 }}>
             <text x="24" y="306" class="legend">chapter 11 signed off on that with "prefill is compute-bound anyway, so the launches are hidden"</text>
-            <text x="24" y="330" class="legend muted">which is true of a big prefill. It is not true of a small one.</text>
+            <text x="24" y="330" class="legend">which is true of a big prefill. It is not true of a small one.</text>
           </g>
         </g>
       {/if}
@@ -197,8 +195,8 @@
           </g>
 
           <g in:fade={{ delay: 1400 }}>
-            <text x="16" y="348" class="legend">below <tspan class="strong">{LAUNCH_BOUND} tokens</tspan> the step costs what the CPU takes to launch it — the same wall decode hit in chapter 11</text>
-            <text x="16" y="370" class="legend muted">a short prompt, the tail chunk of a chunked prefill, a vision encoder: all of them live down there</text>
+            <text x="18" y="348" class="pt">·</text><text x="28" y="348" class="legend">below <tspan class="strong">{LAUNCH_BOUND} tokens</tspan> the step costs what the CPU takes to launch it — the same wall decode hit in chapter 11</text>
+            <text x="18" y="370" class="pt">·</text><text x="28" y="370" class="legend">a short prompt, the tail chunk of a chunked prefill, a vision encoder: all of them live down there</text>
           </g>
         </g>
       {/if}
@@ -210,22 +208,23 @@
           <text x="16" y="44" class="rowlabel">three prefill batches in a row · the token count is different every time</text>
           {#each batches as n, i}
             {@const y = 76 + i * 74}
+            {@const TP = 3.5}
             {@const rung = padTo(n)}
             <g in:fade={{ delay: i * 500, duration: 250 }}>
               <text x="16" y={y + 20} class="rowlabel">batch {i + 1}</text>
               {#each Array(rung) as _, t}
-                <rect x={90 + t * 3.9} y={y} width="2.9" height="26" rx="1"
+                <rect x={90 + t * TP} y={y} width={TP - 1} height="26" rx="1"
                       fill={t < n ? 'var(--accent)' : 'white'} stroke={t < n ? 'none' : 'var(--line)'}
                       opacity={t < n ? 0.85 : 1} in:fade={{ delay: i * 500 + t * 3, duration: 80 }} />
               {/each}
-              <text x={90 + (n * 3.9) / 2} y={y + 44} text-anchor="middle" class="tag"><tspan class="strong">{n}</tspan> real</text>
-              <text x={90 + n * 3.9 + ((rung - n) * 3.9) / 2} y={y + 44} text-anchor="middle" class="tag">+{rung - n}</text>
-              <text x={90 + rung * 3.9 + 12} y={y + 20} class="tag strong">→ the {rung} graph</text>
+              <text x={90 + (n * TP) / 2} y={y + 44} text-anchor="middle" class="tag"><tspan class="strong">{n}</tspan> real</text>
+              <text x={90 + n * TP + ((rung - n) * TP) / 2} y={y + 44} text-anchor="middle" class="tag">+{rung - n}</text>
+              <text x={90 + rung * TP + 12} y={y + 20} class="tag strong">→ the {rung} graph</text>
             </g>
           {/each}
           <g in:fade={{ delay: 1700 }}>
-            <text x="16" y="330" class="legend">chapter 11's ladder was <tspan class="strong">requests</tspan>; this one is <tspan class="strong">tokens</tspan>. Pad up, replay the rung, drop the padding's output.</text>
-            <text x="16" y="352" class="legend muted">so far so good — and this is not enough</text>
+            <text x="18" y="330" class="pt">·</text><text x="28" y="330" class="legend">chapter 11's ladder was <tspan class="strong">requests</tspan>; this one is <tspan class="strong">tokens</tspan>. Pad up, replay the rung, drop the padding's output.</text>
+            <text x="18" y="352" class="pt">·</text><text x="28" y="352" class="legend">so far so good — and this is not enough</text>
           </g>
         </g>
       {/if}
@@ -259,8 +258,8 @@
             </g>
           {/each}
           <g in:fade={{ delay: 1900 }}>
-            <text x="16" y="348" class="legend">every token attends back only to the start of <tspan class="strong">its own</tspan> sequence, so the boundaries are part of the work</text>
-            <text x="16" y="370" class="legend muted">padding gave both batches the same shape. It could not give them the same attention.</text>
+            <text x="18" y="348" class="pt">·</text><text x="28" y="348" class="legend">every token attends back only to the start of <tspan class="strong">its own</tspan> sequence, so the boundaries are part of the work</text>
+            <text x="18" y="370" class="pt">·</text><text x="28" y="370" class="legend">padding gave both batches the same shape. It could not give them the same attention.</text>
           </g>
         </g>
       {/if}
@@ -284,8 +283,8 @@
             </g>
           {/each}
           <g in:fade={{ delay: 1200 }}>
-            <text x="16" y="352" class="legend"><tspan class="strong">{SAME} rows of {kernelRows.length} are identical</tspan>: same kernel, same shapes, same addresses — one recording replays for both batches</text>
-            <text x="16" y="374" class="legend muted">the row that differs is the only one that has to know where the sequences start</text>
+            <text x="18" y="352" class="pt">·</text><text x="28" y="352" class="legend"><tspan class="strong">{SAME} rows of {kernelRows.length} are identical</tspan>: same kernel, same shapes, same addresses — one recording replays for both batches</text>
+            <text x="18" y="374" class="pt">·</text><text x="28" y="374" class="legend">the row that differs is the only one that has to know where the sequences start</text>
           </g>
         </g>
       {/if}
@@ -347,15 +346,15 @@
           <g in:fade={{ delay: 1250 }}>
             <path d="M 92 212 H 682" fill="none" stroke="var(--line)" />
             <text x="92" y="234" class="tag">the CPU is idle inside every orange block and busy only at the seams</text>
-            <text x="16" y="284" class="legend">{PIECES} replays and {LAYERS} eager attentions: <tspan class="strong">{PIECES + LAYERS * ATTN_LAUNCHES} things for the CPU to do</tspan>, not {KERNELS.toLocaleString()}</text>
-            <text x="16" y="306" class="legend muted">attention is still launched the old way, and it is the one kernel big enough not to care</text>
+            <text x="18" y="284" class="pt">·</text><text x="28" y="284" class="legend">{PIECES} replays and {LAYERS} eager attentions: <tspan class="strong">{PIECES + LAYERS * ATTN_LAUNCHES} things for the CPU to do</tspan>, not {KERNELS.toLocaleString()}</text>
+            <text x="18" y="306" class="pt">·</text><text x="28" y="306" class="legend">attention is still launched the old way, and it is the one kernel big enough not to care</text>
           </g>
         </g>
       {/if}
 
       <!-- 8: the arithmetic -->
       {#if cur.scene === 'arith'}
-        {@const X = 150}
+        {@const X = 160}
         {@const SC = 52}
         <g transition:fade={{ duration: 250 }}>
           <text x="16" y="44" class="rowlabel">CPU time for one prefill step · the GPU needs {fmt(tMem)} of it at small token counts</text>
@@ -378,8 +377,8 @@
             <text x={X + tMem * SC - 8} y="296" text-anchor="end" class="tag" fill="#16a34a">anything left of this line is free</text>
           </g>
           <g in:fade={{ delay: 1080 }}>
-            <text x="16" y="342" class="legend"><tspan class="strong">You don't need one graph. You need the CPU under the GPU.</tspan></text>
-            <text x="16" y="364" class="legend muted">piecewise costs {Math.round(pieceTotal / 0.02)}× what a whole-model graph costs and buys the same thing, because both are under {fmt(tMem)}</text>
+            <text x="18" y="342" class="pt">·</text><text x="28" y="342" class="legend"><tspan class="strong">You don't need one graph. You need the CPU under the GPU.</tspan></text>
+            <text x="18" y="364" class="pt">·</text><text x="28" y="364" class="legend">piecewise costs {Math.round(pieceTotal / 0.02)}× what a whole-model graph costs and buys the same thing, because both are under {fmt(tMem)}</text>
           </g>
         </g>
       {/if}
@@ -419,8 +418,8 @@
           {/each}
 
           <g in:fade={{ delay: 1500 }}>
-            <text x="16" y="358" class="legend">above 32 tokens the gap stays under <tspan class="strong">a sixteenth of the batch</tspan></text>
-            <text x="16" y="380" class="legend muted">so padding costs a fixed share of the work, never a fixed number of tokens</text>
+            <text x="18" y="358" class="pt">·</text><text x="28" y="358" class="legend">above 32 tokens the gap stays under <tspan class="strong">a sixteenth of the batch</tspan></text>
+            <text x="18" y="380" class="pt">·</text><text x="28" y="380" class="legend">so padding costs a fixed share of the work, never a fixed number of tokens</text>
             <text x="112" y="150" class="tag strong">{rungs.length} rungs in all</text>
             <text x="112" y="166" class="tag">{PIECES} recordings each</text>
             <text x="112" y="182" class="tag">built once at startup</text>
@@ -461,7 +460,7 @@
             <text x="535" y="318" text-anchor="middle" class="slab strong small" fill="var(--eos)">the data</text>
             <text x="535" y="338" text-anchor="middle" class="tag">leave it out; it becomes a seam</text>
           </g>
-          <text x="16" y="378" class="legend muted" in:fade={{ delay: 1150 }}>the seam list is configuration, not a law: an engine names the ops it wants to cut at</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1150 }}>the seam list is configuration, not a law: an engine names the ops it wants to cut at</text>
         </g>
       {/if}
 
@@ -496,8 +495,8 @@
                 <text x={op.x} y="266" class="mono muted" in:fade={{ delay: 1400 + i * 60 }}>{op.n}</text>
               {/if}
             {/each}
-            <text x="22" y="322" class="legend">a flat list of operations, in order, with the seams marked — <tspan class="strong">the graph was always there; nobody had written it down</tspan></text>
-            <text x="22" y="344" class="legend muted">SGLang wraps the model in <tspan class="mono">torch.compile</tspan> for exactly this, then replaces each subgraph with a replayable piece</text>
+            <text x="18" y="322" class="pt">·</text><text x="28" y="322" class="legend">a flat list of operations, in order, with the seams marked — <tspan class="strong">the graph was always there; nobody had written it down</tspan></text>
+            <text x="18" y="344" class="pt">·</text><text x="28" y="344" class="legend">SGLang wraps the model in <tspan class="mono">torch.compile</tspan> for exactly this, then replaces each subgraph with a replayable piece</text>
           </g>
         </g>
       {/if}
@@ -540,9 +539,9 @@
           <text x="184" y="242" class="tag">the GPU's own 80 GB — the weights and the KV cache are in here too</text>
 
           <g in:fade={{ delay: 900 }}>
-            <text x="16" y="290" class="legend"><tspan class="strong">{chain.length} kernels, {chain.length * 2} trips</tspan> — and every arrow is inside the GPU. The CPU sent one replay and went back to sleep.</text>
-            <text x="16" y="312" class="legend muted">a kernel's registers are gone the moment it ends, so whatever the next one needs has to go out to memory and come back</text>
-            <text x="16" y="334" class="legend muted">×{LAYERS} layers, and again for every token in the batch</text>
+            <text x="18" y="290" class="pt">·</text><text x="28" y="290" class="legend"><tspan class="strong">{chain.length} kernels, {chain.length * 2} trips</tspan> — and every arrow is inside the GPU. The CPU sent one replay and went back to sleep.</text>
+            <text x="18" y="312" class="pt">·</text><text x="28" y="312" class="legend">a kernel's registers are gone the moment it ends, so whatever the next one needs has to go out to memory and come back</text>
+            <text x="18" y="334" class="pt">·</text><text x="28" y="334" class="legend">×{LAYERS} layers, and again for every token in the batch</text>
           </g>
           <text x="16" y="374" class="legend" in:fade={{ delay: 1400 }}>Nothing but <tspan class="mono strong">mul</tspan> ever reads what <tspan class="mono strong">silu</tspan> wrote, and it wants it immediately. <tspan class="strong">So why are they two kernels?</tspan></text>
         </g>
@@ -551,30 +550,13 @@
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={4200} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .cell { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
-  .mono { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
-  .mono.muted { fill: var(--muted); }
-  .mono.strong { font-weight: 600; }
-  .tag { font-size: 10px; fill: var(--muted); }
   .legendkey { font-size: 8.5px; fill: var(--muted); }
   .scissors { font-size: 17px; }
   .tag.strong, .tag .strong, .mono .strong { fill: var(--fg); font-weight: 600; }
-  .steplabel { font-size: 10px; fill: white; font-weight: 600; }
-  .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .slab { font-size: 12px; fill: var(--fg); }
-  .slab.small { font-size: 11.5px; }
-  .slab.strong.small { font-size: 12px; font-weight: 650; }
   .verdict { font-size: 15px; font-weight: 700; }
-  .kname { font-family: var(--mono); font-size: 10px; fill: white; font-weight: 600; }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
-  .legend.muted { fill: var(--muted); }
 </style>

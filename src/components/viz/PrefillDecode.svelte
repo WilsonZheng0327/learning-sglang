@@ -1,15 +1,11 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import type { NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import type { NavLink } from '../../chapters';
+  import { W_GB, BW, TFLOPS as FLOPS, GFLOP_PER_TOKEN, KB_PER_TOKEN as KB_PER_CTX_TOKEN } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- Numbers: Llama-3-8B in bf16 on one H100 ---------------------------------------------
-  const W_GB = 16;               // weights
-  const BW = 3.35;               // TB/s HBM
-  const FLOPS = 989;             // TFLOP/s dense bf16
-  const GFLOP_PER_TOKEN = 16;    // ≈ 2 × params
-  const KB_PER_CTX_TOKEN = 128;  // kv cache per token, from chapter 3
   const cacheGB = (ctx: number) => (ctx * KB_PER_CTX_TOKEN) / 1e6;
   const tMem = (ctx: number) => (W_GB + cacheGB(ctx)) / BW;   // ms  (GB / (TB/s) = ms)
   const tComp = (n: number) => (n * GFLOP_PER_TOKEN) / FLOPS;   // ms  (GFLOP / (TFLOP/s) = ms)
@@ -229,28 +225,19 @@
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={3000} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .rowlabel .eq { fill: var(--faint); }
   .tok { font-family: var(--mono); font-size: 12.5px; fill: var(--fg); }
   .cell { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
   .num { font-family: var(--mono); font-size: 11px; fill: var(--fg); }
-  .tag { font-size: 10px; fill: var(--muted); }
   .tag.strong { fill: var(--fg); font-weight: 600; }
   .tag.idle { fill: var(--eos); font-weight: 600; }
   .steplabel { font-size: 11px; fill: white; font-weight: 600; }
   .steplabel.small { font-size: 9px; font-weight: 400; opacity: 0.9; }
-  .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .slab { font-size: 12px; fill: var(--fg); }
   .slab.strong { font-weight: 650; font-size: 14px; }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend .strong { font-weight: 650; }
   .bar { transform-box: fill-box; transform-origin: left center; transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1), fill 300ms; }
   .wire { stroke: var(--line); stroke-width: 6; stroke-linecap: round; transition: stroke 300ms; }
   .wire.active { stroke: var(--accent); stroke-dasharray: 10 8; animation: march 600ms linear infinite; }

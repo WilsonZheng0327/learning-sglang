@@ -2,7 +2,7 @@
 layout: ../../layouts/Chapter.astro
 slug: 01-inference
 ---
-import AutoregressiveGen from '../../components/AutoregressiveGen.svelte';
+import AutoregressiveGen from '../../components/viz/AutoregressiveGen.svelte';
 import { neighbors } from '../../chapters';
 
 <AutoregressiveGen client:load {...neighbors('01-inference')} />

@@ -1,7 +1,13 @@
 // Write a plain-text transcript of every ready chapter: each step's caption, every piece of text drawn
 // on the stage once its transitions and phases have settled, and the chapter's <details> prose.
 // The output is transcript/NN-slug.md, one file per chapter, meant for reading and diffing — not editing.
-// A caption that wraps past the three-line budget, or stage text that runs past the SVG's right edge, is flagged in the file and on stdout.
+//
+// It also checks each step against the layout rules in AGENTS.md, flags breaks in the file, and lists them on stdout:
+//   caption     wraps past the three-line budget
+//   clipped     stage text runs past the SVG's edge
+//   overlap     two pieces of stage text cover each other
+//   footnote    a .footnote that is not centred at the bottom of the stage, or a grey .legend.muted line left over
+//   dot         a single .pt dot (a lone statement takes none), or a leftover round bullet
 // Edit the component or the MDX, then regenerate.
 //
 // usage: node scripts/transcript.mjs [baseUrl]        (default http://localhost:4321/learning-sglang)
@@ -9,11 +15,10 @@
 //   ONLY=13      regenerate one chapter by number
 //   JOBS=4       chapters rendered concurrently, one tab each
 //   LINES=3      caption line budget to flag against
-// Needs a dev or preview server on baseUrl, chromium on PATH, and Node 22+.
-import { spawn } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+// Needs a dev or preview server on baseUrl and Node 22+; finds Chrome itself (see lib/browser.mjs).
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { launch, sleep } from './lib/browser.mjs';
 
 const base = (process.argv[2] ?? 'http://localhost:4321/learning-sglang').replace(/\/$/, '');
 const waitMs = Number(process.env.WAIT) || 3400;
@@ -30,46 +35,8 @@ const chapters = [...roster.matchAll(/\{\s*part:\s*'(\w+)',\s*slug:\s*'([^']+)',
   .filter((c) => c.ready && (only === null || c.n === only));
 if (!chapters.length) { console.error('no ready chapters matched'); process.exit(1); }
 
-// ---- chromium over the DevTools protocol, as in shot.mjs -----------------------------------------------------
-const port = 9334;
-const profile = mkdtempSync(join(tmpdir(), 'transcript-'));
-const chrome = spawn('chromium', ['--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
-  `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--window-size=1440,900', 'about:blank'], { stdio: 'ignore' });
-const shutdown = () => {
-  chrome.once('exit', () => { try { rmSync(profile, { recursive: true, force: true }); } catch {} });
-  chrome.kill();
-};
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-let version;
-for (let i = 0; i < 50 && !version; i++) {
-  try { version = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json(); } catch { await sleep(100); }
-}
-if (!version) { shutdown(); throw new Error('chromium did not start'); }
-
-const ws = new WebSocket(version.webSocketDebuggerUrl);
-await new Promise((r) => (ws.onopen = r));
-let id = 0; const pending = new Map(); const listeners = [];
-ws.onmessage = (e) => {
-  const m = JSON.parse(e.data);
-  if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
-  else listeners.forEach((l) => l(m));
-};
-const send = (method, params = {}, sessionId) => new Promise((resolve) => {
-  const msgId = ++id; pending.set(msgId, resolve);
-  ws.send(JSON.stringify({ id: msgId, method, params, sessionId }));
-});
-const waitEvent = (name, sessionId) => new Promise((resolve) => {
-  const l = (m) => { if (m.method === name && m.sessionId === sessionId) { listeners.splice(listeners.indexOf(l), 1); resolve(m); } };
-  listeners.push(l);
-});
-const evaluate = async (expression, sessionId) => {
-  const { result } = await send('Runtime.evaluate', { expression, returnByValue: true }, sessionId);
-  if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
-  return result.result.value;
-};
-
-// Runs in the page. Returns the step counter, the caption, and the stage's text in document order:
-// every SVG <text> plus any HTML leaf element inside .canvas (the viz container every component uses).
+// Runs in the page. Returns the step counter, the caption, the stage's text in document order
+// (every SVG <text> plus any HTML leaf inside .canvas, the container every viz uses), and the rule checks.
 const EXTRACT = `(() => {
   const norm = (s) => s.replace(/\\s+/g, ' ').trim();
   const counter = norm(document.querySelector('.counter')?.textContent ?? '');
@@ -79,32 +46,75 @@ const EXTRACT = `(() => {
   const lh = cap ? parseFloat(getComputedStyle(cap).lineHeight) : 0;
   const capLines = span && lh ? Math.round(span.getBoundingClientRect().height / lh) : 0;
   const root = document.querySelector('.canvas') ?? document.querySelector('.viz');
-  const lines = [];
-  // any SVG <text> whose box runs past the viewBox is clipped on screen: report it, like an overflowing caption
-  const clipped = [];
   const svg = root?.querySelector('svg');
-  const vbW = svg?.viewBox?.baseVal?.width ?? 0;
-  if (svg && vbW) {
-    for (const t of svg.querySelectorAll('text')) {
-      try { const b = t.getBBox(); if (b.width && (b.x + b.width > vbW - 2 || b.x < 0)) clipped.push(norm(t.textContent)); } catch {}
+  const vb = svg?.viewBox?.baseVal;
+  const clipped = [], overlaps = [], rules = [];
+
+  // what the reader can see: skip text faded out, hidden, or inside a foreignObject
+  const shown = (el) => {
+    for (let e = el, o = 1; e && e !== svg; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      o *= Number(cs.opacity); if (o < 0.05) return false;
     }
+    return true;
+  };
+  const texts = svg ? [...svg.querySelectorAll('text')].filter((t) => !t.closest('foreignObject') && norm(t.textContent) && shown(t)) : [];
+  const cls = (t) => t.classList;
+
+  if (vb?.width) {
+    const ctm = svg.getScreenCTM();
+    const left = ctm.e + vb.x * ctm.a, right = ctm.e + (vb.x + vb.width) * ctm.a;
+    for (const t of texts) {
+      const r = t.getBoundingClientRect();
+      if (r.width && (r.right > right - 2 * ctm.a || r.left < left)) clipped.push(norm(t.textContent));
+    }
+    // overlap: two boxes on screen that cross by more than a pixel each way (transforms included)
+    const boxes = texts.map((t) => ({ t, r: t.getBoundingClientRect() }));
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i].r, b = boxes[j].r;
+      const w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (w > 1 && h > 1) overlaps.push(norm(boxes[i].t.textContent).slice(0, 60) + '  ×  ' + norm(boxes[j].t.textContent).slice(0, 60));
+    }
+    // footnotes sit centred at the bottom; grey legend lines are footnotes or they are text
+    for (const t of texts) {
+      if (cls(t).contains('footnote')) {
+        const x = t.x.baseVal[0]?.value ?? 0, y = t.y.baseVal[0]?.value ?? 0;
+        const centred = getComputedStyle(t).textAnchor === 'middle' && Math.abs(x - vb.width / 2) < 2;
+        if (!centred || y < vb.height - 40) rules.push('footnote not centred at the bottom: ' + norm(t.textContent).slice(0, 70));
+      }
+      if (cls(t).contains('legend') && cls(t).contains('muted')) rules.push('grey legend line (make it a .footnote, or regular text): ' + norm(t.textContent).slice(0, 70));
+    }
+    // a footnote needs clear space: no drawn shape under it
+    const shapes = [...svg.querySelectorAll('rect, path, line, circle, polygon, polyline, ellipse')]
+      .filter((s) => !s.closest('defs, marker, foreignObject') && shown(s)).map((s) => s.getBoundingClientRect()).filter((r) => r.width || r.height);
+    for (const t of texts.filter((t) => cls(t).contains('footnote'))) {
+      const a = t.getBoundingClientRect();
+      if (shapes.some((b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1))
+        rules.push('footnote crosses a drawn shape: ' + norm(t.textContent).slice(0, 70));
+    }
+    const dots = texts.filter((t) => cls(t).contains('pt'));
+    if (dots.length === 1) rules.push('a lone .pt dot: a single statement takes none');
+    if (svg.querySelector('circle.dot')) rules.push('a round bullet: use the .pt centre dot');
   }
+
+  // the transcript itself: a dot joins the statement after it, and footnotes say so
+  const lines = [];
+  let dot = false;
   const walk = (el) => {
-    if (el.tagName === 'text' || el.tagName === 'TEXT') { const t = norm(el.textContent); if (t) lines.push(t); return; }
+    if (el.tagName === 'text' || el.tagName === 'TEXT') {
+      const t = norm(el.textContent); if (!t) return;
+      if (el.classList.contains('pt')) { dot = true; return; }
+      lines.push((el.classList.contains('footnote') ? '_footnote:_ ' : dot ? '· ' : '') + t); dot = false; return;
+    }
     if (el.tagName === 'title' || el.tagName === 'defs' || el.tagName === 'style') return;
     const kids = [...el.children];
     if (!kids.length && !(el instanceof SVGElement)) { const t = norm(el.textContent); if (t) lines.push(t); return; }
     kids.forEach(walk);
   };
   if (root) walk(root);
-  return { step: m ? Number(m[1]) : NaN, total: m ? Number(m[2]) : NaN, caption, capLines, lines, clipped };
+  return { step: m ? Number(m[1]) : NaN, total: m ? Number(m[2]) : NaN, caption, capLines, lines, clipped, overlaps, rules };
 })()`;
-
-const RIGHT = { key: 'ArrowRight', code: 'ArrowRight' };
-const press = async (sessionId) => {
-  await send('Input.dispatchKeyEvent', { type: 'keyDown', ...RIGHT }, sessionId);
-  await send('Input.dispatchKeyEvent', { type: 'keyUp', ...RIGHT }, sessionId);
-};
 
 const prose = (slug) => {
   const mdx = readFileSync(`src/pages/ch/${slug}.mdx`, 'utf8');
@@ -112,46 +122,49 @@ const prose = (slug) => {
   return m ? { summary: m[1].trim(), body: m[2].trim() } : null;
 };
 
+const browser = await launch({ port: 9334 });
+
 const transcribe = async (ch) => {
-  const { result: { targetId } } = await send('Target.createTarget', { url: 'about:blank' });
-  const { result: { sessionId } } = await send('Target.attachToTarget', { targetId, flatten: true });
-  await send('Page.enable', {}, sessionId);
-  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
-  const url = `${base}/ch/${ch.slug}/?step=1`;
-  const loaded = waitEvent('Page.loadEventFired', sessionId);
-  await send('Page.navigate', { url }, sessionId);
-  await loaded;
-  await sleep(waitMs);
-
+  // each step opened by its ?step=N link, which every viz honours: keyboard focus is unreliable across several headless windows
+  const page = await browser.tab();
   const steps = [];
-  for (let guard = 0; guard < 60; guard++) {
-    const s = await evaluate(EXTRACT, sessionId);
-    if (!Number.isFinite(s.step)) throw new Error(`${ch.slug}: could not read the step counter`);
-    steps.push(s);
-    if (s.step >= s.total) break;
-    await press(sessionId);
+  for (let n = 1, total = 1; n <= total; n++) {
+    await page.goto(`${base}/ch/${ch.slug}/?step=${n}`);
     await sleep(waitMs);
+    const s = await page.evaluate(EXTRACT);
+    if (s.step !== n) throw new Error(`${ch.slug}: opened step ${n}, the counter says ${s.step}`);
+    steps.push(s);
+    total = s.total;
   }
-  await send('Target.closeTarget', { targetId });
+  await page.close();
 
-  const component = (readFileSync(`src/pages/ch/${ch.slug}.mdx`, 'utf8').match(/components\/(\w+)\.svelte/) ?? [])[1];
+  const component = (readFileSync(`src/pages/ch/${ch.slug}.mdx`, 'utf8').match(/(components\/[\w/]+\.svelte)/) ?? [])[1];
   const out = [];
   out.push(`# ${String(ch.n).padStart(2, '0')} · ${ch.title}`, '', ch.hook, '');
-  out.push(`Source: \`src/pages/ch/${ch.slug}.mdx\`${component ? ` · \`src/components/${component}.svelte\`` : ''}`);
+  out.push(`Source: \`src/pages/ch/${ch.slug}.mdx\`${component ? ` · \`src/${component}\`` : ''}`);
   out.push(`Generated by \`node scripts/transcript.mjs\` — edit the source, not this file.`, '');
+  const flag = (title, items) => { if (items.length) { out.push(`**${title}**`, ''); for (const l of items) out.push(`- ${l}`); out.push(''); } };
   for (const s of steps) {
     out.push(`## Step ${s.step} of ${s.total}`, '');
     const over = s.capLines > budget ? ` (${s.capLines} lines: OVERFLOWS the ${budget}-line caption budget)` : '';
     out.push(`**Caption${over}.** ${s.caption}`, '');
     if (s.lines.length) { out.push('**On stage.**', ''); for (const l of s.lines) out.push(`- ${l}`); out.push(''); }
-    if (s.clipped.length) { out.push('**CLIPPED · runs past the right edge of the stage.**', ''); for (const l of s.clipped) out.push(`- ${l}`); out.push(''); }
+    flag('CLIPPED · runs past the edge of the stage.', s.clipped);
+    flag('OVERLAP · stage text covering other stage text.', s.overlaps);
+    flag('RULE · breaks a layout rule in AGENTS.md.', s.rules);
   }
   const p = prose(ch.slug);
   if (p) { out.push(`## Prose · ${p.summary}`, '', p.body, ''); }
   writeFileSync(join(outDir, `${ch.slug}.md`), out.join('\n'));
-  const overflowing = steps.filter((s) => s.capLines > budget).map((s) => s.step);
-  const clippedAt = steps.filter((s) => s.clipped.length).map((s) => s.step);
-  console.log(`${ch.slug}: ${steps.length} steps${overflowing.length ? ` · captions over ${budget} lines at step ${overflowing.join(', ')}` : ''}${clippedAt.length ? ` · clipped stage text at step ${clippedAt.join(', ')}` : ''}`);
+
+  const at = (pred) => steps.filter(pred).map((s) => s.step).join(', ');
+  const report = [
+    [steps.some((s) => s.capLines > budget), `captions over ${budget} lines at step ${at((s) => s.capLines > budget)}`],
+    [steps.some((s) => s.clipped.length), `clipped stage text at step ${at((s) => s.clipped.length)}`],
+    [steps.some((s) => s.overlaps.length), `overlapping text at step ${at((s) => s.overlaps.length)}`],
+    [steps.some((s) => s.rules.length), `layout rules broken at step ${at((s) => s.rules.length)}`],
+  ].filter(([hit]) => hit).map(([, msg]) => msg);
+  console.log(`${ch.slug}: ${steps.length} steps${report.length ? ' · ' + report.join(' · ') : ''}`);
 };
 
 // a small pool: `jobs` chapters at a time, each in its own tab
@@ -174,4 +187,4 @@ for (const c of all.filter((c) => c.ready)) {
   index.push(`| ${String(c.n).padStart(2, '0')} | [${c.title}](${c.slug}.md) | ${n} |`);
 }
 writeFileSync(join(outDir, 'README.md'), index.join('\n') + '\n');
-ws.close(); shutdown();
+browser.close();

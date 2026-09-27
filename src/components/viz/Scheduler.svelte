@@ -1,13 +1,12 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
-  import StepControls from './StepControls.svelte';
-  import { chapters, type NavLink } from '../chapters';
+  import StepControls from '../StepControls.svelte';
+  import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
+  import { W_GB, BW, TFLOPS as FLOPS, GFLOP_PER_TOKEN as GFLOP } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const chNum = (slug: string) => chapters.findIndex((c) => c.slug === slug) + 1;
   const CH_DISAGG = chNum('22-disaggregation'), CH_CUDA = chNum('11-cuda-graphs');
 
   // ---- Numbers, same as chapters 4 and 5: Llama-3-8B bf16 on one H100 -------------------------
-  const W_GB = 16, BW = 3.35, FLOPS = 989, GFLOP = 16;
   const tMem = W_GB / BW;
   const tComp = (n: number) => (n * GFLOP) / FLOPS;
   const stepMs = (n: number) => Math.max(tMem, tComp(n));
@@ -49,7 +48,7 @@
     });
     return { worst, ws, we, ttft, total: t, arrival };
   }
-  const TL = { x: 90, y: 110, rowH: 26, gapY: 58, pxPerMs: 5.8 };
+  const TL = { x: 104, y: 110, rowH: 26, gapY: 58, pxPerMs: 5.6 };
   const policies: { mode: Mode; name: string; note: string }[] = [
     { mode: 'prefill-first', name: 'prefill first', note: 'one prompt, its own step' },
     { mode: 'chunked', name: `chunked, not mixed · ${CHUNK} per chunk`, note: 'chunk step, decode step, chunk step…' },
@@ -169,7 +168,7 @@
             <text x="642" y="186" text-anchor="middle" class="tag strong">or</text>
             <text x="642" y="200" text-anchor="middle" class="tag">decode batch</text>
           </g>
-          <text x="16" y="300" class="legend muted" in:fade={{ delay: 1800 }}>the default in SGLang and vLLM: each step is one kind of batch. Mixing comes back later, on purpose and bounded.</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1800 }}>the default in SGLang and vLLM: each step is one kind of batch. Mixing comes back later, on purpose and bounded.</text>
         </g>
       {/if}
 
@@ -205,7 +204,7 @@
 
           <g in:fade={{ delay: 900 }}>
             <text x="360" y="330" text-anchor="middle" class="legend">two shapes → two batches → two fast paths</text>
-            <text x="360" y="352" text-anchor="middle" class="legend muted">what the split unlocks: separate machines (chapter {CH_DISAGG}), CUDA graphs for decode (chapter {CH_CUDA})</text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">what the split unlocks: separate machines (chapter {CH_DISAGG}), CUDA graphs for decode (chapter {CH_CUDA})</text>
           </g>
         </g>
       {/if}
@@ -221,8 +220,8 @@
         {@const ly = rowN + TL.rowH + 66}
         {@const fx = TL.x + (segX[firstIdx] + segs[firstIdx].ms) * TL.pxPerMs - 1}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y={TL.y - 46} class="rowlabel">{DECODERS} users decoding · {mode === 'batched' ? `${WAITING.length} prompts waiting` : `a ${PROMPT.toLocaleString()}-token prompt arrives`}</text>
-          <text x="16" y={TL.y - 30} class="rowlabel strong">{mode === 'prefill-first' ? 'prefill first · the prompt gets its own step' : mode === 'batched' ? 'prefill first · three prompts in one prefill step' : mode === 'chunked' ? `chunked prefill, not mixed · chunk step, decode step, chunk step…` : `chunked prefill, mixed · every step carries a chunk and all the decodes`}</text>
+          <text x="16" y={TL.y - 52} class="rowlabel">{DECODERS} users decoding · {mode === 'batched' ? `${WAITING.length} prompts waiting` : `a ${PROMPT.toLocaleString()}-token prompt arrives`}</text>
+          <text x="16" y={TL.y - 36} class="rowlabel strong">{mode === 'prefill-first' ? 'prefill first · the prompt gets its own step' : mode === 'batched' ? 'prefill first · three prompts in one prefill step' : mode === 'chunked' ? `chunked prefill, not mixed · chunk step, decode step, chunk step…` : `chunked prefill, mixed · every step carries a chunk and all the decodes`}</text>
           <text x={TL.x - 10} y={rowN + TL.rowH + 18} text-anchor="end" class="rowlabel">step type</text>
           <line x1={TL.x} y1={rowN + TL.rowH + 34} x2={TL.x + 104 * TL.pxPerMs} y2={rowN + TL.rowH + 34} stroke="var(--line)" />
           {#each [0, 25, 50, 75, 100] as ms}
@@ -311,7 +310,7 @@
               <text x={bx + Math.max(3, (m.worst / maxMs) * bw) + 6} y={y + 51} class="num">{fmt(m.worst)}</text>
             </g>
           {/each}
-          <text x="16" y="352" class="legend muted" in:fade={{ delay: 900 }}>the decode step floor is {fmt(tMem)}: a gap of {fmt(tMem)} means nobody noticed the newcomer at all</text>
+          <text x="16" y="352" class="legend" in:fade={{ delay: 900 }}>the decode step floor is {fmt(tMem)}: a gap of {fmt(tMem)} means nobody noticed the newcomer at all</text>
         </g>
       {/if}
 
@@ -354,35 +353,25 @@
             <text x="360" y="325" text-anchor="middle" class="steplabel big">one forward pass · then back to the top</text>
             <path d="M 360 340 V 354 H 702 V 108 H 496" fill="none" stroke="#b8b4aa" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
           </g>
-          <text x="360" y="380" text-anchor="middle" class="legend muted" in:fade={{ delay: 1400 }}>SGLang: <tspan class="mono">schedule_policy</tspan>, <tspan class="mono">chunked_prefill_size</tspan>, <tspan class="mono">enable_mixed_chunk</tspan> · this loop is <tspan class="mono">Scheduler.get_next_batch_to_run()</tspan></text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1400 }}>SGLang: <tspan class="mono">schedule_policy</tspan>, <tspan class="mono">chunked_prefill_size</tspan>, <tspan class="mono">enable_mixed_chunk</tspan> · this loop is <tspan class="mono">Scheduler.get_next_batch_to_run()</tspan></text>
         </g>
       {/if}
     </svg>
   </div>
 
-  <StepControls {step} total={steps.length} caption={cur.caption} interval={3400} {prev} {next} onchange={(s) => (step = s)} />
+  <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
 <style>
-  .viz { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-  .canvas { flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.12); }
-  svg { display: block; width: 100%; height: 100%; font-family: var(--sans); }
-  .rowlabel { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .rowlabel.strong { fill: var(--fg); }
   .cell { font-family: var(--mono); font-size: 10px; fill: var(--fg); }
   .num { font-family: var(--mono); font-size: 10.5px; fill: var(--fg); }
   .mono { font-family: var(--mono); font-size: 10px; }
-  .tag { font-size: 10px; fill: var(--muted); }
   .tag.strong { fill: var(--fg); font-weight: 600; }
-  .steplabel { font-size: 10px; fill: white; font-weight: 600; }
   .steplabel.big { font-size: 11.5px; }
-  .boxtitle { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .slab { font-size: 12px; fill: var(--fg); }
   .slab.strong { font-weight: 650; font-size: 14px; }
   .slab.strong.small { font-size: 12.5px; }
   .tile-value { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
   .tile-label { font-size: 10.5px; fill: var(--muted); }
-  .legend { font-size: 11.5px; fill: var(--fg); }
-  .legend.muted { fill: var(--muted); }
   .wire { stroke: var(--line); stroke-width: 6; stroke-linecap: round; }
 </style>
