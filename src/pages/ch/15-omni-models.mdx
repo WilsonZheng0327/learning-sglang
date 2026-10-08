@@ -1,0 +1,32 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 15-omni-models
+---
+import OmniModels from '../../components/viz/OmniModels.svelte';
+import { neighbors } from '../../chapters';
+
+<OmniModels client:load {...neighbors('15-omni-models')} />
+
+<details>
+<summary>The running example, and where its numbers come from</summary>
+
+**Qwen3-Omni.** Chapters 15 to 18 follow one model, [Qwen3-Omni](https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct), as [SGLang-Omni](https://github.com/sgl-project/sglang-omni) serves it. It reads text, images, audio and video, and answers in text or in speech.
+
+**A sample.** Sound is stored as the height of the wave, read at a fixed rate. Qwen3-Omni reads speech at 16,000 samples a second and writes it at 24,000, the rates SGLang-Omni's server takes and returns.
+
+</details>
+
+<details>
+<summary>What the stage simplifies, and where each claim comes from</summary>
+
+**The codec.** Qwen3-Omni describes each 80 ms frame of sound with 16 codes of 2,048 values each, and its code-to-sound model writes 1,920 samples per frame (24,000 a second ÷ 12.5 frames). The talker picks code 0; a small code predictor picks codes 1 to 15 one after another. SGLang-Omni runs the code predictor inside the talker's own step, which is why a frame never makes the talker wait.
+
+**code2wav's chunks.** SGLang-Omni hands code2wav 10 frames at a time (`codec_coalesce_frames=10` in its Qwen3-Omni config), and each pass also rereads up to 25 earlier frames so the seams between chunks stay smooth. Step 3 leaves the rereading out.
+
+**What the talker reads.** For each token the engine picks, SGLang-Omni sends the token id to the detokenizer and the token's embedding to the talker. The talker's prompt also carries the engine's view of the photo and the question, which step 3 leaves out. Once the engine's text runs out, the talker reads a pad token each step and carries on.
+
+**The talker's wait.** SGLang-Omni's talker scheduler (`talker_scheduler.py`) holds a decode batch until every request in it has its next input. Steps 5 and 6 draw when tokens arrive and when the engine is busy as an illustration, not a measurement: how often the talker waits depends on how busy the engine is.
+
+**The 2%.** SGLang-Omni's refactor notes (`docs/design/refactor_rfc.md`) record that a talker given its own H200 sat at under 2% utilization, the reason its stages may now share a GPU. They do not say under what load; step 6's timelines are not to scale.
+
+</details>

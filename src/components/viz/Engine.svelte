@@ -4,7 +4,7 @@
   import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
   import { W_GB, BW } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const CH_CUDA = chNum('11-cuda-graphs'), CH_DISAGG = chNum('22-disaggregation');
+  const CH_CUDA = chNum('11-cuda-graphs'), CH_DISAGG = chNum('28-disaggregation');
   const tStep = W_GB / BW;
   const fmt = (ms: number) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms';
 

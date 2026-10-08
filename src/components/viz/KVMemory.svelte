@@ -4,7 +4,7 @@
   import { chapterNumber as chNum, type NavLink } from '../../chapters';
   import { W_GB, HBM_GB, KB_PER_TOKEN as KB_TOK, BW, TFLOPS as FLOPS, GFLOP_PER_TOKEN as GFLOP } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const CH_PREFIX = chNum('08-prefix-caching'), CH_DISAGG = chNum('22-disaggregation');
+  const CH_PREFIX = chNum('08-prefix-caching'), CH_DISAGG = chNum('28-disaggregation');
 
   // ---- Numbers, same as before: Llama-3-8B bf16 on one H100 ------------------------------------
   const tMem = W_GB / BW;

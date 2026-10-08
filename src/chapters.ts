@@ -4,8 +4,9 @@ export interface Part { id: string; title: string; blurb: string }
 export const parts: Part[] = [
   { id: 'loop', title: 'The loop', blurb: 'Why every piece of the engine exists.' },
   { id: 'fast', title: 'Making one GPU fast', blurb: 'The loop is correct; now the step is slow for reasons that have nothing to do with the model.' },
-  { id: 'scale', title: 'More than one GPU', blurb: 'The model, the cache, or the traffic no longer fits on one card.' },
   { id: 'omni', title: 'Beyond text · SGLang Omni', blurb: 'Speech and vision break the assumptions of Part I, one at a time.' },
+  { id: 'faster', title: 'More from one GPU', blurb: 'The step is now mostly the weight read: get more tokens out of it, or make it smaller.' },
+  { id: 'scale', title: 'More than one GPU', blurb: 'The model, the cache, or the traffic no longer fits on one card.' },
 ];
 
 export interface Chapter { slug: string; title: string; hook: string; ready: boolean; part: string }
@@ -25,21 +26,24 @@ export const chapters: Chapter[] = [
   { part: 'fast', slug: '12-piecewise-cuda-graph', title: 'Piecewise CUDA graphs', hook: 'When the graph has to break.', ready: true },
   { part: 'fast', slug: '13-torch-compile', title: 'torch.compile', hook: 'Fusing the kernels you were about to launch.', ready: true },
   { part: 'fast', slug: '14-attention-backends', title: 'Attention backends', hook: 'Why there are five kernels for one equation.', ready: true },
-  { part: 'fast', slug: '15-speculative-decoding', title: 'Speculative decoding', hook: 'Guess several tokens, verify in one step.', ready: false },
-  { part: 'fast', slug: '16-quantization', title: 'Quantization', hook: 'Shrinking the read every step pays for.', ready: false },
-  { part: 'fast', slug: '17-two-batch-overlap', title: 'Two-batch overlap', hook: 'Hiding communication behind compute.', ready: false },
 
-  { part: 'scale', slug: '18-tensor-parallel', title: 'Tensor parallelism', hook: 'A model bigger than one GPU.', ready: false },
-  { part: 'scale', slug: '19-pipeline-expert-parallel', title: 'Pipeline & expert parallelism', hook: 'Splitting by layer, and by expert.', ready: false },
-  { part: 'scale', slug: '20-dp-attention', title: 'Data-parallel attention', hook: 'Replicate the attention side, share the rest.', ready: false },
-  { part: 'scale', slug: '21-hierarchical-kv', title: 'Hierarchical KV cache', hook: 'When 64 GB is not enough.', ready: false },
-  { part: 'scale', slug: '22-disaggregation', title: 'Prefill-decode disaggregation', hook: 'Two clocks, two machines.', ready: false },
-  { part: 'scale', slug: '23-router', title: 'The router', hook: 'Many engines, one front door.', ready: false },
+  { part: 'omni', slug: '15-omni-models', title: 'Omni models', hook: 'Pixels and speech in, speech out.', ready: true },
+  { part: 'omni', slug: '16-stages-and-schedulers', title: 'Stages and schedulers', hook: 'Eight stages, three kinds of scheduler.', ready: false },
+  { part: 'omni', slug: '17-between-stages', title: 'Between stages', hook: 'How a token gets from one process to the next.', ready: false },
+  { part: 'omni', slug: '18-sharing-gpus', title: 'Sharing GPUs', hook: 'Several models, one card.', ready: false },
+  { part: 'omni', slug: '19-streaming-audio', title: 'Streaming audio decode', hook: 'Output with a real-time deadline.', ready: false },
+  { part: 'omni', slug: '20-full-duplex', title: 'Full duplex', hook: 'Listening while speaking.', ready: false },
 
-  { part: 'omni', slug: '24-multimodal-inputs', title: 'Multimodal inputs', hook: 'A stage in front of the loop.', ready: false },
-  { part: 'omni', slug: '25-multistage-inference', title: 'Multi-stage inference', hook: 'Thinker, talker, and the pipe between them.', ready: false },
-  { part: 'omni', slug: '26-streaming-audio', title: 'Streaming audio decode', hook: 'Output with a real-time deadline.', ready: false },
-  { part: 'omni', slug: '27-full-duplex', title: 'Full duplex', hook: 'Listening while speaking.', ready: false },
+  { part: 'faster', slug: '21-speculative-decoding', title: 'Speculative decoding', hook: 'Guess several tokens, verify in one step.', ready: false },
+  { part: 'faster', slug: '22-quantization', title: 'Quantization', hook: 'Shrinking the read every step pays for.', ready: false },
+  { part: 'faster', slug: '23-two-batch-overlap', title: 'Two-batch overlap', hook: 'Hiding communication behind compute.', ready: false },
+
+  { part: 'scale', slug: '24-tensor-parallel', title: 'Tensor parallelism', hook: 'A model bigger than one GPU.', ready: false },
+  { part: 'scale', slug: '25-pipeline-expert-parallel', title: 'Pipeline & expert parallelism', hook: 'Splitting by layer, and by expert.', ready: false },
+  { part: 'scale', slug: '26-dp-attention', title: 'Data-parallel attention', hook: 'Replicate the attention side, share the rest.', ready: false },
+  { part: 'scale', slug: '27-hierarchical-kv', title: 'Hierarchical KV cache', hook: 'When 64 GB is not enough.', ready: false },
+  { part: 'scale', slug: '28-disaggregation', title: 'Prefill-decode disaggregation', hook: 'Two clocks, two machines.', ready: false },
+  { part: 'scale', slug: '29-router', title: 'The router', hook: 'Many engines, one front door.', ready: false },
 ];
 
 export interface NavLink { title: string; href: string; ready: boolean }

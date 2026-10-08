@@ -5,7 +5,7 @@
   import { D_MODEL as D, D_FF as F, LAYERS, BYTES, W_GB, BW, SMS } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const CH_NEXT = chNum('14-attention-backends');
-  const CH_QUANT = chNum('16-quantization');
+  const CH_QUANT = chNum('22-quantization');
 
   // ---- Numbers: Llama-3-8B bf16 on one H100, continuing chapters 4, 11 and 12 --------------------------
   const tMem = W_GB / BW;                                   // 4.8 ms, the weight read

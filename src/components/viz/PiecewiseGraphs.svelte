@@ -5,7 +5,7 @@
   import { W_GB, BW, LAYERS } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const CH_NEXT = chNum('13-torch-compile');
-  const CH_TP = chNum('18-tensor-parallel');
+  const CH_TP = chNum('24-tensor-parallel');
 
   // ---- Numbers: Llama-3-8B bf16 on one H100, continuing chapters 4 and 11 ------------------------------
   const tMem = W_GB / BW;                          // 4.8 ms: the weight read, the floor under any step

@@ -37,22 +37,6 @@ The loop is correct; now the step is slow for reasons that have nothing to do wi
 | 12 | [Piecewise CUDA graphs](https://wilsonzheng0327.github.io/learning-sglang/ch/12-piecewise-cuda-graph/) | When the graph has to break. | live |
 | 13 | [torch.compile](https://wilsonzheng0327.github.io/learning-sglang/ch/13-torch-compile/) | Fusing the kernels you were about to launch. | live |
 | 14 | [Attention backends](https://wilsonzheng0327.github.io/learning-sglang/ch/14-attention-backends/) | Why there are five kernels for one equation. | live |
-| 15 | Speculative decoding | Guess several tokens, verify in one step. | planned |
-| 16 | Quantization | Shrinking the read every step pays for. | planned |
-| 17 | Two-batch overlap | Hiding communication behind compute. | planned |
-
-### More than one GPU
-
-The model, the cache, or the traffic no longer fits on one card.
-
-| # | Chapter | Hook | Status |
-|---|---|---|---|
-| 18 | Tensor parallelism | A model bigger than one GPU. | planned |
-| 19 | Pipeline & expert parallelism | Splitting by layer, and by expert. | planned |
-| 20 | Data-parallel attention | Replicate the attention side, share the rest. | planned |
-| 21 | Hierarchical KV cache | When 64 GB is not enough. | planned |
-| 22 | Prefill-decode disaggregation | Two clocks, two machines. | planned |
-| 23 | The router | Many engines, one front door. | planned |
 
 ### Beyond text · SGLang Omni
 
@@ -60,10 +44,35 @@ Speech and vision break the assumptions of Part I, one at a time.
 
 | # | Chapter | Hook | Status |
 |---|---|---|---|
-| 24 | Multimodal inputs | A stage in front of the loop. | planned |
-| 25 | Multi-stage inference | Thinker, talker, and the pipe between them. | planned |
-| 26 | Streaming audio decode | Output with a real-time deadline. | planned |
-| 27 | Full duplex | Listening while speaking. | planned |
+| 15 | [Omni models](https://wilsonzheng0327.github.io/learning-sglang/ch/15-omni-models/) | Pixels and speech in, speech out. | live |
+| 16 | Stages and schedulers | Eight stages, three kinds of scheduler. | planned |
+| 17 | Between stages | How a token gets from one process to the next. | planned |
+| 18 | Sharing GPUs | Several models, one card. | planned |
+| 19 | Streaming audio decode | Output with a real-time deadline. | planned |
+| 20 | Full duplex | Listening while speaking. | planned |
+
+### More from one GPU
+
+The step is now mostly the weight read: get more tokens out of it, or make it smaller.
+
+| # | Chapter | Hook | Status |
+|---|---|---|---|
+| 21 | Speculative decoding | Guess several tokens, verify in one step. | planned |
+| 22 | Quantization | Shrinking the read every step pays for. | planned |
+| 23 | Two-batch overlap | Hiding communication behind compute. | planned |
+
+### More than one GPU
+
+The model, the cache, or the traffic no longer fits on one card.
+
+| # | Chapter | Hook | Status |
+|---|---|---|---|
+| 24 | Tensor parallelism | A model bigger than one GPU. | planned |
+| 25 | Pipeline & expert parallelism | Splitting by layer, and by expert. | planned |
+| 26 | Data-parallel attention | Replicate the attention side, share the rest. | planned |
+| 27 | Hierarchical KV cache | When 64 GB is not enough. | planned |
+| 28 | Prefill-decode disaggregation | Two clocks, two machines. | planned |
+| 29 | The router | Many engines, one front door. | planned |
 
 ## Running locally
 

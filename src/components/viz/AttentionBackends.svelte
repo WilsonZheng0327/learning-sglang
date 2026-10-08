@@ -61,7 +61,8 @@
   const mlaOnly = [{ n: 'flashmla', page: '64' }, { n: 'cutlass_mla', page: '128' }, { n: 'trtllm_mla', page: '32 · 64 · Blackwell' }];
 
   type Scene = 'bytes' | 'traffic' | 'bill' | 'flash' | 'map' | 'heads' | 'shapes' | 'split' | 'pages' | 'hardware' | 'interface' | 'backends' | 'closing';
-  const ORDER: Scene[] = ['bytes', 'traffic', 'bill', 'flash', 'map', 'heads', 'shapes', 'split', 'pages', 'hardware', 'interface', 'backends', 'closing'];
+  // 'closing' (one request's next 5 positions in one pass) is hidden until speculative decoding follows this chapter again
+  const ORDER: Scene[] = ['bytes', 'traffic', 'bill', 'flash', 'map', 'heads', 'shapes', 'split', 'pages', 'hardware', 'interface', 'backends'];
   const at = (s: Scene) => ORDER.indexOf(s) + 1;            // step numbers on the stage follow the order above
   const nb = (s: string) => `<span style="white-space:nowrap">${s}</span>`;   // keeps a hyphenated name on one caption line
   const captions: Record<Scene, string> = {

@@ -4,7 +4,7 @@
   import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
   import { W_GB, HBM_GB, BW, KB_PER_TOKEN as KB_TOK } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const CH_ENGINE = chNum('10-engine'), CH_TP = chNum('18-tensor-parallel'), CH_DISAGG = chNum('22-disaggregation');
+  const CH_ENGINE = chNum('10-engine'), CH_TP = chNum('24-tensor-parallel'), CH_DISAGG = chNum('28-disaggregation');
 
   const tStep = W_GB / BW;                                  // ≈ 4.8 ms decode step, from chapter 4
   const RUNNING = Math.floor((HBM_GB - W_GB) / ((4096 * KB_TOK) / 1e6));   // chapter 7's cap at 4k context: 122

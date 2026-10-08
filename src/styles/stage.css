@@ -29,4 +29,7 @@
    .pt: the small centre dot that marks each of several stacked statements; a single statement gets none */
 :where(.viz) .footnote { font-size: 10.5px; fill: var(--muted); }
 :where(.viz) .footnote .strong { fill: var(--fg); font-weight: 600; }
+/* .need: a step's conclusion ("needed: …"), drawn on an accent-soft pill so it reads first */
+:where(.viz) .need { font-size: 12.5px; fill: var(--fg); }
+:where(.viz) .need .strong { font-weight: 650; fill: var(--accent); }
 :where(.viz) .pt { font-size: 11.5px; fill: var(--muted); font-weight: 700; }

@@ -4,7 +4,7 @@
   import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
   import { W_GB, BW, TFLOPS as FLOPS, GFLOP_PER_TOKEN as GFLOP } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const CH_DISAGG = chNum('22-disaggregation'), CH_CUDA = chNum('11-cuda-graphs');
+  const CH_DISAGG = chNum('28-disaggregation'), CH_CUDA = chNum('11-cuda-graphs');
 
   // ---- Numbers, same as chapters 4 and 5: Llama-3-8B bf16 on one H100 -------------------------
   const tMem = W_GB / BW;
