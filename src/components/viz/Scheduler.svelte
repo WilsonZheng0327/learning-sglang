@@ -60,7 +60,7 @@
   interface Step { caption: string; scene: Scene; mode?: Mode }
   const M = Object.fromEntries((['prefill-first', 'batched', 'chunked', 'mixed'] as Mode[]).map((m) => [m, metrics(timeline(m))])) as Record<Mode, ReturnType<typeof metrics>>;
   const steps: Step[] = [
-    { scene: 'recap', caption: `Chapter 5 ended here: a newcomer's prefill stretching everyone's decode step. Engines don't run the two together by default. They split the work into two kinds of batch and pick one each step. That's the scheduler.` },
+    { scene: 'recap', caption: `Ch. 5 Step 9 ended here: a newcomer's prefill stretching everyone's decode step. Engines don't run the two together by default. They split the work into two kinds of batch and pick one each step. That's the scheduler.` },
     { scene: 'lists', caption: `The engine keeps two lists. <b>Waiting</b>: new requests that need a prefill. <b>Running</b>: conversations mid-answer that need one more token. Each step runs one batch, from one list.` },
     { scene: 'why', caption: `Same model, two shapes. Prefill: a few sequences, hundreds of tokens each, ragged. Decode: many sequences, one token each, the same shape every step. Two shapes, two batches; chapters ${CH_DISAGG} and ${CH_CUDA} show what that unlocks.` },
     { scene: 'timeline', mode: 'prefill-first', caption: `The default policy: if anyone is waiting, run a prefill batch first. The newcomer's first token comes in ${fmt(M['prefill-first'].ttft)}, but nobody decodes during those ${fmt(M['prefill-first'].ttft)}. A 32k-token prompt would freeze everyone for half a second.` },
@@ -138,7 +138,7 @@
         {@const cols = [{ w: 44, wide: false }, { w: 44, wide: false }, { w: 150, wide: true }, { w: 44, wide: false }, { w: 44, wide: false }]}
         {@const xs = cols.reduce<number[]>((a, c, i) => { a.push(i === 0 ? 0 : a[i - 1] + cols[i - 1].w + 4); return a; }, [])}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="54" class="rowlabel">chapter 5, last frame · continuous batching, one newcomer joins</text>
+          <text x="16" y="54" class="rowlabel">Ch. 5 Step 9 · continuous batching, one newcomer joins</text>
           {#each Array(6) as _, sIdx}
             <text x="120" y={104 + sIdx * 26 + 15} text-anchor="end" class="rowlabel">slot {sIdx + 1}</text>
             {#each cols as c, t}

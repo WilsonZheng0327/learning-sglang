@@ -11,9 +11,9 @@
   type Scene = 'process' | 'overlap' | 'future' | 'map';
   interface Step { caption: string; scene: Scene; v?: number }
   const steps: Step[] = [
-    { scene: 'process', v: 0, caption: `Inside process 2. Two lists of <b>Req</b> objects, waiting and running. The page pool and the radix tree from chapters 7 and 8. A model runner that owns the GPU. And one loop, top to bottom, about ${Math.round(1000 / Number(tStep.toFixed(1)))} times a second.` },
+    { scene: 'process', v: 0, caption: `Inside process 2. Two lists of <b>Req</b> objects, waiting and running. The page pool and the radix tree from Ch. 7 Step 4 and Ch. 8 Step 4. A model runner that owns the GPU. And one loop, top to bottom, about ${Math.round(1000 / Number(tStep.toFixed(1)))} times a second.` },
     { scene: 'process', v: 1, caption: `Top of the loop: drain the inbox. Each message becomes a Req: its ids and sampling params, a prefix match against the tree (3 of its 5 tokens are already cached), and a place at the end of the waiting list. Ours arrives now.` },
-    { scene: 'process', v: 2, caption: `Chapter 6's decision. Anyone waiting, and room in the pool for what they'll write? Ours needs 2 pages: its 2 uncached prompt tokens. Room enough, so it makes this step's prefill batch.` },
+    { scene: 'process', v: 2, caption: `Ch. 6 Step 9's decision. Anyone waiting, and room in the pool for what they'll write? Ours needs 2 pages: its 2 uncached prompt tokens. Room enough, so it makes this step's prefill batch.` },
     { scene: 'process', v: 3, caption: `A batch becomes tensors: every token id in one flat array, each request's positions, and each request's page table so attention can find its cache. Pages for the tokens about to be written are allocated here.` },
     { scene: 'process', v: 4, caption: `The model runner runs chapters 2 to 4: embeddings, 32 layers of attention over the paged cache and MLP, logits for the last position of every request. New k and v land in the pages just allocated.` },
     { scene: 'process', v: 5, caption: `Logits become one token per request: temperature, top-p, penalties, whatever each asked for. The id is appended to its Req, and the Req checks itself: EOS? max tokens? finished?` },
@@ -126,7 +126,7 @@
           <!-- right: memory and GPU -->
           <rect x={R.x} y="64" width={R.w} height="90" rx="8" fill="#fbfaf7" stroke={lit('tree') ? 'var(--accent)' : 'var(--line)'} stroke-width={lit('tree') ? 2 : 1} />
           <text x={R.x + 10} y="82" class="tag strong">RadixCache</text>
-          <text x={R.x + 10} y="96" class="tag">shared prefixes · chapter 8</text>
+          <text x={R.x + 10} y="96" class="tag">shared prefixes · Ch. 8 Step 4</text>
           <circle cx={R.x + 62} cy="118" r="6" fill="var(--accent-soft)" stroke="var(--accent)" />
           <circle cx={R.x + 37} cy="140" r="6" fill="var(--accent-soft)" stroke="var(--accent)" /><circle cx={R.x + 87} cy="140" r="6" fill="var(--accent-soft)" stroke="var(--accent)" />
           <line x1={R.x + 58} y1="123" x2={R.x + 41} y2="135" stroke="var(--faint)" /><line x1={R.x + 66} y1="123" x2={R.x + 83} y2="135" stroke="var(--faint)" />
@@ -146,7 +146,7 @@
 
           <rect x={R.x} y="164" width={R.w} height="90" rx="8" fill="#fbfaf7" stroke={lit('pool') ? '#0891b2' : 'var(--line)'} stroke-width={lit('pool') ? 2 : 1} />
           <text x={R.x + 10} y="182" class="tag strong">TokenToKVPool</text>
-          <text x={R.x + 10} y="196" class="tag">pages · chapter 7</text>
+          <text x={R.x + 10} y="196" class="tag">pages · Ch. 7 Step 4</text>
           {#each Array(24) as _, i}
             {@const own = [1, 3, 4, 6, 9, 10, 13, 15, 18, 20, 21].includes(i)}
             {@const mine = v >= 3 && [7, 12].includes(i)}

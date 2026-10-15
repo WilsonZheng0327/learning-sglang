@@ -10,7 +10,7 @@ import { neighbors } from '../../chapters';
 <details>
 <summary>Where the numbers come from</summary>
 
-A prefill step of $n$ tokens costs the GPU $\max(t_{\text{mem}},\; n \cdot t_{\text{tok}})$ — the 4.8 ms weight read from chapter 4, or the compute, whichever is larger. The CPU's side is flat: about a thousand launches at 9 µs each, whatever rides along. So the step is launch-bound while $9\ \text{ms} > n \cdot t_{\text{tok}}$, which for an 8B model at roughly a petaflop is $n < 560$ — the same crossover chapter 11 found on the batch-size axis, because it is the same 9 ms on the other side of the comparison.
+A prefill step of $n$ tokens costs the GPU $\max(t_{\text{mem}},\; n \cdot t_{\text{tok}})$ — the 4.8 ms weight read from Ch. 4 Step 5, or the compute, whichever is larger. The CPU's side is flat: about a thousand launches at 9 µs each, whatever rides along. So the step is launch-bound while $9\ \text{ms} > n \cdot t_{\text{tok}}$, which for an 8B model at roughly a petaflop is $n < 560$ — the same crossover Ch. 11 Step 4 found on the batch-size axis, because it is the same 9 ms on the other side of the comparison.
 
 Piecewise replaces those launches with one replay per piece plus eager attention: $33 \times 10\,\mu s + 32 \times 3 \times 9\,\mu s \approx 1.2$ ms. Sixty times what a single whole-model graph costs, and irrelevant, because the target was never zero — it was 4.8 ms.
 

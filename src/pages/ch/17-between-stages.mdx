@@ -1,0 +1,23 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 17-between-stages
+---
+import BetweenStages from '../../components/viz/BetweenStages.svelte';
+import { neighbors } from '../../chapters';
+
+<BetweenStages client:load {...neighbors('17-between-stages')} />
+
+<details>
+<summary>Where this chapter's claims come from</summary>
+
+**The transports.** SGLang-Omni's `CommRouter` (`comm/router.py`) picks a transport for each edge: a plain reference when both stages share a process, Mooncake when the receiver is on another machine, CUDA IPC when the data is on a GPU and both stages run on GPUs in one machine, and shared memory otherwise. CUDA IPC between two GPUs needs the GPUs to reach each other's memory; if they cannot, the router falls back to shared memory. The edge-by-edge transports in step 9 follow these rules for the default speech layout; they were not traced on a running server.
+
+**The hand-off.** The sender's runtime writes the data through a relay, then sends a `DataReadyMessage` over ZMQ naming the request, the two stages and where the data is. The receiver reads it, sends a `DataAckMessage` so the sender can reuse the space, and puts it in its scheduler's inbox. The CUDA IPC relay keeps a fixed pool of slots on the sender's GPU; the ack frees a slot.
+
+**The sizes.** One vector is the thinker's width, 2,048 numbers, at 2 bytes each in bf16. Each encoder embedding has the same width, since it takes a position in the thinker's prompt. Qwen3-Omni also passes a few extra vision layers to the thinker, which the table leaves out.
+
+**The 33%.** SGLang-Omni's design notes (PR #496) report that its text-only pipeline, which runs every stage in one process, cut its mean latency by 33% when its stages began passing references instead of going through the relay.
+
+**What is not Omni's own.** CUDA IPC, shared memory and RDMA transfer engines are general tools. SGLang also uses Mooncake to move KV cache between servers in prefill-decode disaggregation (chapter 28). What SGLang-Omni adds is the choice per edge, from where the edge's two stages sit.
+
+</details>

@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { fade, fly } from 'svelte/transition';
   import StepControls from '../StepControls.svelte';
+  import LoopProgress from '../LoopProgress.svelte';
   import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
   import { D_MODEL as D, D_FF as F, LAYERS, BYTES, W_GB, BW, SMS } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
@@ -28,17 +30,17 @@
   type Scene = 'chain' | 'waste' | 'why' | 'fuse' | 'triton' | 'whatfuses' | 'tiles' | 'autotune' | 'worth' | 'cost' | 'closing';
   interface Step { caption: string; scene: Scene }
   const steps: Step[] = [
-    { scene: 'chain', caption: `Chapter 12 left a piece looking like this: a chain of kernels between two matmuls, each one reading its input from memory and writing its output back. Take the two in the middle.` },
+    { scene: 'chain', caption: `Ch. 12 Step 12 left a piece looking like this: a chain of kernels between two matmuls, each one reading its input from memory and writing its output back. Take the two in the middle.` },
     { scene: 'waste', caption: `<b>SiLU</b> writes ${kb(inter)} per token per layer into HBM, and <b>multiply</b> reads it back a microsecond later. Nothing else ever reads it. Across ${LAYERS} layers that is ${savedPerTok.toFixed(1)} MB per token, out to memory and straight back.` },
     { scene: 'why', caption: `It exists because eager PyTorch runs one line at a time. <code>silu(gate)</code> is a call, a call returns a tensor, and a tensor lives in HBM. Line 2 has not been read yet, so nothing knows the result is consumed next.` },
     { scene: 'fuse', caption: `<b>Fuse them.</b> One kernel: load gate and up once, compute the SiLU and the multiply in registers, store the answer once. Identical arithmetic, two fewer trips through memory.` },
-    { scene: 'triton', caption: `And you can, because chapter 12 already traced the model. <b>Inductor</b> takes that graph, walks the chain of pointwise ops, and writes a <b>Triton</b> kernel that does all of them in one pass.` },
+    { scene: 'triton', caption: `And you can, because Ch. 12 Step 11 already traced the model. <b>Inductor</b> takes that graph, walks the chain of pointwise ops, and writes a <b>Triton</b> kernel that does all of them in one pass.` },
     { scene: 'whatfuses', caption: `<b>Pointwise</b> ops (output i needs only input i: silu, mul, add) and <b>reductions</b> (a row to one number: norm) fuse into one kernel. A matmul needs whole rows and columns, so Inductor <b>picks</b> a library kernel for it and folds the pointwise edges in.` },
     { scene: 'tiles', caption: `One idea first. A matmul's output C is carved into <b>tiles</b>, one per thread block. Whatever the tile's shape, its block loads its rows of A and its columns of B in full, so a bigger tile makes more outputs from each load.` },
     { scene: 'autotune', caption: `At batch ${B_SM}, C has ${B_SM} rows. A square 128 × 128 tile pads 112 of them with zeros, and ${F.toLocaleString()} / 128 is only ${F / 128} tiles for ${SMS} SMs. A ${B_SM} × 64 tile pads nothing and makes ${F / 64}. So benchmark a few shapes on the real C and keep the fastest.` },
     { scene: 'worth', caption: `Fusing that chain removes ${savedMB.toFixed(0)} MB from a decode step at batch ${B_EX}. Against the ${W_GB} GB weight read that is about ${pctTraffic.toFixed(0)}%, which on a memory-bound step is about ${(savedMs * 1000).toFixed(0)} µs of ${fmtMs(tMem)}.` },
     { scene: 'cost', caption: `Startup gains jobs, each once per captured shape: compile a kernel per fused group, benchmark tile shapes per matmul (<code>max-autotune</code> only), then record. Recording goes last: it freezes whichever kernels exist when it is taken.` },
-    { scene: 'closing', caption: `The layer has been cut, fused and recorded — except for one kernel. Attention was cut out in chapter 12 and has run eagerly ever since. So what can be done with attention itself? Chapter ${CH_NEXT}.` },
+    { scene: 'closing', caption: `The layer has been cut, fused and recorded — except for one kernel. Attention was cut out in Ch. 12 Step 6 and has run eagerly ever since. So what can be done with attention itself? Chapter ${CH_NEXT}.` },
   ];
 
   let step = $state(0);
@@ -50,6 +52,8 @@
   const W = 720, H = 400;
 
   // within-step phases, looping, for the worth step: 0 the bars whole with the piece fusing removes in red, 1 that piece gone
+  let lap = $state(0), lapMs = $state(0);           // the looping step's laps, for LoopProgress
+  const nextLap = (ms: number) => untrack(() => { lapMs = ms; lap++; });   // untracked, so starting a lap does not re-run the effect
   let phase = $state(0);
   $effect(() => {
     const s = step;
@@ -58,7 +62,8 @@
     if (steps[s].scene === 'worth') {
       const cycle: [number, number][] = [[1, 3200], [0, 3200]];
       let i = 0;
-      const tick = () => { const [ph, wait] = cycle[i]; timers.push(setTimeout(() => { phase = ph; i = (i + 1) % cycle.length; tick(); }, wait)); };
+      nextLap(cycle.reduce((a, [, w]) => a + w, 0));
+      const tick = () => { const [ph, wait] = cycle[i]; timers.push(setTimeout(() => { phase = ph; i = (i + 1) % cycle.length; if (i === 0) nextLap(lapMs); tick(); }, wait)); };
       tick();
     }
     return () => timers.forEach(clearTimeout);
@@ -95,7 +100,7 @@
   const jobs = [
     { t: 'compile', s: `${DISTINCT_K} fused kernels`, n: DISTINCT_K, c: 'var(--accent)', op: 0.85 },
     { t: 'benchmark', s: `${MATMULS} matmuls × ${cands.length} tile shapes · max-autotune only`, n: MATMULS * cands.length, c: 'var(--fg)', op: 0.55 },
-    { t: 'record', s: 'chapter 11', n: 1, c: 'var(--gen)', op: 0.85 },
+    { t: 'record', s: 'Ch. 11 Step 6', n: 1, c: 'var(--gen)', op: 0.85 },
   ];
   const JX0 = 128, JPITCH = 15, JGAP = 16;
   const jobX = jobs.map((_, i) => JX0 + jobs.slice(0, i).reduce((a, j) => a + j.n * JPITCH + JGAP, 0));
@@ -123,7 +128,7 @@
       {#if cur.scene === 'chain'}
         {@const chain = [{ n: 'gate·up', mm: true }, { n: 'silu', mm: false }, { n: 'mul', mm: false }, { n: 'down', mm: true }]}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="42" class="rowlabel">one piece from chapter 12 · the MLP end of a layer</text>
+          <text x="16" y="42" class="rowlabel">one piece from Ch. 12 Step 12 · the MLP end of a layer</text>
           <rect x="40" y="212" width="650" height="34" rx="8" fill="#f4f2ec" stroke="var(--line)" />
           <text x="56" y="234" class="boxtitle">HBM</text>
           {#each chain as k, i}
@@ -257,7 +262,7 @@
         <g transition:fade={{ duration: 250 }}>
           <text x="16" y="42" class="rowlabel">who writes that kernel</text>
           {#each [
-            { t: 'the traced graph', l: ['chapter 12 already', 'has it: a flat list', 'of tensor ops'], c: 'var(--muted)' },
+            { t: 'the traced graph', l: ['Ch. 12 Step 11 already', 'has it: a flat list', 'of tensor ops'], c: 'var(--muted)' },
             { t: 'Inductor', l: ['walk the list, group', 'the pointwise ops', 'that touch the same rows'], c: 'var(--accent)' },
             { t: 'Triton, generated', l: ['one kernel per group,', 'compiled at startup,', 'cached on disk'], c: '#16a34a' },
           ] as b, i}
@@ -285,7 +290,7 @@
             {/each}
           </g>
           <text x="16" y="336" class="legend" in:fade={{ delay: 1600 }}>two loads and one store: <tspan class="mono">g * sigmoid(g)</tspan> never leaves the register it was computed in</text>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1900 }}>SGLang: <tspan class="mono">--cuda-graph-tc-compiler inductor</tspan> · chapter 12's default was <tspan class="strong">eager</tspan>: trace, cut, and stop there</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1900 }}>SGLang: <tspan class="mono">--cuda-graph-tc-compiler inductor</tspan> · Ch. 12 Step 11's default was <tspan class="strong">eager</tspan>: trace, cut, and stop there</text>
         </g>
       {/if}
 
@@ -319,7 +324,7 @@
             {#each [
               { c: '#16a34a', t: 'written', s: 'by Inductor: one new Triton kernel per pointwise or reduction chain', n: 3 },
               { c: 'var(--fg)', t: 'picked', s: 'from a library: cuBLAS, a Triton template or CUTLASS; its pointwise neighbours fold into it', n: 4 },
-              { c: 'var(--eos)', t: 'left eager', s: 'the attention seam from chapter 12', n: 1 },
+              { c: 'var(--eos)', t: 'left eager', s: 'the attention seam from Ch. 12 Step 6', n: 1 },
             ] as k, i}
               {@const y = 256 + i * 26}
               <rect x="30" y={y - 12} width="16" height="16" rx="4" fill={k.c} opacity="0.85" />
@@ -439,7 +444,7 @@
         {@const wB = (savedMB / 1e3) * perGB}
         {@const wT = Math.max(3, savedMs * perMs)}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="42" class="rowlabel">one decode step at batch {B_EX} · weights and activations, then time · chapter 4's KV cache read not shown</text>
+          <text x="16" y="42" class="rowlabel">one decode step at batch {B_EX} · weights and activations, then time · Ch. 4 Step 6's KV cache read not shown</text>
 
           <g in:fade={{ delay: 100, duration: 250 }}>
             <text x="16" y="90" class="rowlabel">bytes</text>
@@ -575,6 +580,7 @@
         </g>
       {/if}
 
+      {#if cur.scene === 'worth'}<LoopProgress ms={lapMs} {lap} />{/if}
     </svg>
   </div>
 

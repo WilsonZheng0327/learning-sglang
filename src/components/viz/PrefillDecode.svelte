@@ -114,7 +114,7 @@
             <g in:fade>
               <rect x={HBM.x + 14} y={HBM.y + 110} width={HBM.w - 28} height="26" rx="6" fill="#cffafe" stroke="#0891b2" />
               <text x={HBM.x + HBM.w / 2} y={HBM.y + 127} text-anchor="middle" class="slab">kv cache · {cacheGB(ctx).toFixed(1)} GB at {ctx / 1024}k</text>
-              <text x={HBM.x + HBM.w / 2} y={HBM.y + HBM.h + 16} text-anchor="middle" class="tag">at 7 tokens it was {(cacheGB(7) * 1000).toFixed(1)} MB (chapter 3)</text>
+              <text x={HBM.x + HBM.w / 2} y={HBM.y + HBM.h + 16} text-anchor="middle" class="tag">at 7 tokens it was {(cacheGB(7) * 1000).toFixed(1)} MB (Ch. 3 Step 9)</text>
             </g>
           {/if}
 

@@ -49,9 +49,9 @@
   type Scene = 'shapes' | 'bound' | 'bucket' | 'bounds' | 'tokenwise' | 'cut' | 'run' | 'arith' | 'ladder' | 'seams' | 'tracer' | 'closing';
   interface Step { caption: string; scene: Scene; v?: number }
   const steps: Step[] = [
-    { scene: 'shapes', caption: `Chapter 11 ended here. Decode gets a graph because its batch is always [B, 1]; prefill is ragged, so it runs eagerly — <b>and that was fine, because prefill is compute-bound anyway</b>. That last part deserves a second look.` },
-    { scene: 'bound', caption: `Only above about ${LAUNCH_BOUND} tokens. Below that, the GPU finishes a prefill step in less time than the CPU needs to launch it — prefill is <b>launch-bound</b>, exactly like decode was in chapter 11.` },
-    { scene: 'bucket', caption: `So record prefill too. The token count changes every batch, but chapter 11 already solved that: a ladder of sizes and pad up to the next rung. Same trick, a different axis — tokens instead of requests.` },
+    { scene: 'shapes', caption: `Ch. 11 Step 12 left it here. Decode gets a graph because its batch is always [B, 1]; prefill is ragged, so it runs eagerly — <b>and that was fine, because prefill is compute-bound anyway</b>. That last part deserves a second look.` },
+    { scene: 'bound', caption: `Only above about ${LAUNCH_BOUND} tokens. Below that, the GPU finishes a prefill step in less time than the CPU needs to launch it — prefill is <b>launch-bound</b>, exactly like decode was in Ch. 11 Step 4.` },
+    { scene: 'bucket', caption: `So record prefill too. The token count changes every batch, but Ch. 11 Step 10 already solved that: a ladder of sizes and pad up to the next rung. Same trick, a different axis — tokens instead of requests.` },
     { scene: 'bounds', caption: `Except padding fixes the <b>total</b>, not the <b>boundaries</b>. These two batches are both ${TOTAL} tokens, and attention has to do completely different work in each: every token attends only back to the start of its own sequence.` },
     { scene: 'tokenwise', caption: `So run both batches through a layer and compare. ${SAME} of the ${kernelRows.length} kernels do the identical thing, because all they ever see is a row count. Only attention changes — and only attention reads the boundaries.` },
     { scene: 'cut', caption: `So cut there. ${LAYERS} attentions means ${LAYERS} cuts and ${PIECES} pieces, roughly one layer each. Every piece is token-wise, so every piece can be recorded at a padded token count. Attention is left out.` },
@@ -59,7 +59,7 @@
     { scene: 'arith', caption: `${fmt(launchMs)} of CPU becomes about ${fmt(pieceTotal)}: ${PIECES} replays plus the attention launches. That is ${Math.round(pieceTotal / 0.02)}× more CPU than one whole-model graph, and it does not matter. <b>You don't need one graph. You need the CPU under the GPU.</b>` },
     { scene: 'ladder', caption: `The rungs are token counts now, and the gap grows with the count: 4 apart at the bottom, 256 at the top. Every band holds it near a sixteenth of the batch, so what padding wastes is a share of the work rather than a fixed number of tokens.` },
     { scene: 'seams', caption: `Attention isn't the only seam. All-reduce waits on other GPUs (chapter ${CH_TP}); MoE dispatch sends a data-dependent number of tokens to each expert. The rule is the same: if its work depends on the data rather than the token count, cut there.` },
-    { scene: 'tracer', caption: `Nobody writes ${PIECES} capture regions by hand. <b>torch.compile</b> traces the model into a graph of operations; you name the ops to split on, it cuts there and hands back the subgraphs. Each one gets the chapter 11 treatment.` },
+    { scene: 'tracer', caption: `Nobody writes ${PIECES} capture regions by hand. <b>torch.compile</b> traces the model into a graph of operations; you name the ops to split on, it cuts there and hands back the subgraphs. Each one is recorded as in Ch. 11 Step 6.` },
     { scene: 'closing', caption: `The matmuls have to touch memory: that's where the weights are. The two in the middle touch it only because of how they were called — and the tracer handed them back untouched. Chapter ${CH_NEXT}.` },
   ];
 
@@ -136,7 +136,7 @@
           <text x="382" y="240" class="tag">no two alike · <tspan class="strong" fill="var(--eos)">eager, kernel by kernel</tspan></text>
 
           <g in:fade={{ delay: 900 }}>
-            <text x="24" y="306" class="legend">chapter 11 signed off on that with "prefill is compute-bound anyway, so the launches are hidden"</text>
+            <text x="24" y="306" class="legend">Ch. 11 Step 12 signed off on that with "prefill is compute-bound anyway, so the launches are hidden"</text>
             <text x="24" y="330" class="legend">which is true of a big prefill. It is not true of a small one.</text>
           </g>
         </g>
@@ -175,7 +175,7 @@
           <path d="M {px(0)} {py(tMem)} H {px(BALANCE)} L {px(PL.nMax)} {py(gpuMs(PL.nMax))}" fill="none" stroke="var(--gen)" stroke-width="2.5" in:fade={{ delay: 500 }} />
           <g in:fade={{ delay: 800 }}>
             <circle cx={px(BALANCE)} cy={py(tMem)} r="3.5" fill="var(--gen)" />
-            <text x={px(BALANCE) - 10} y={py(tMem) - 10} text-anchor="end" class="tag"><tspan class="strong">{BALANCE}</tspan> · chapter 4's balance point</text>
+            <text x={px(BALANCE) - 10} y={py(tMem) - 10} text-anchor="end" class="tag"><tspan class="strong">{BALANCE}</tspan> · Ch. 4 Step 8's balance point</text>
             <text x={px(LAUNCH_BOUND)} y={PL.y0 + 16} text-anchor="middle" class="tag strong" fill="var(--eos)">{LAUNCH_BOUND}</text>
           </g>
 
@@ -195,7 +195,7 @@
           </g>
 
           <g in:fade={{ delay: 1400 }}>
-            <text x="18" y="348" class="pt">·</text><text x="28" y="348" class="legend">below <tspan class="strong">{LAUNCH_BOUND} tokens</tspan> the step costs what the CPU takes to launch it — the same wall decode hit in chapter 11</text>
+            <text x="18" y="348" class="pt">·</text><text x="28" y="348" class="legend">below <tspan class="strong">{LAUNCH_BOUND} tokens</tspan> the step costs what the CPU takes to launch it — the same wall decode hit in Ch. 11 Step 4</text>
             <text x="18" y="370" class="pt">·</text><text x="28" y="370" class="legend">a short prompt, the tail chunk of a chunked prefill, a vision encoder: all of them live down there</text>
           </g>
         </g>
@@ -223,7 +223,7 @@
             </g>
           {/each}
           <g in:fade={{ delay: 1700 }}>
-            <text x="18" y="330" class="pt">·</text><text x="28" y="330" class="legend">chapter 11's ladder was <tspan class="strong">requests</tspan>; this one is <tspan class="strong">tokens</tspan>. Pad up, replay the rung, drop the padding's output.</text>
+            <text x="18" y="330" class="pt">·</text><text x="28" y="330" class="legend">Ch. 11 Step 10's ladder was <tspan class="strong">requests</tspan>; this one is <tspan class="strong">tokens</tspan>. Pad up, replay the rung, drop the padding's output.</text>
             <text x="18" y="352" class="pt">·</text><text x="28" y="352" class="legend">so far so good — and this is not enough</text>
           </g>
         </g>
@@ -472,7 +472,7 @@
             { t: '1 · the model', l: ['a Python class,', 'a forward() that', 'calls other modules'], c: 'var(--muted)' },
             { t: '2 · trace it', l: ['run it once with', 'Dynamo watching;', 'record every op'], c: 'var(--accent)' },
             { t: '3 · cut', l: ['at the named ops:', 'attention, all-reduce,', 'MoE dispatch'], c: 'var(--eos)' },
-            { t: '4 · capture', l: [`${PIECES} subgraphs,`, 'each recorded per', 'rung — chapter 11'], c: '#16a34a' },
+            { t: '4 · capture', l: [`${PIECES} subgraphs,`, 'each recorded per', 'rung — Ch. 11 Step 10'], c: '#16a34a' },
           ] as b, i}
             {@const x = 22 + i * 172}
             <g in:fly={{ y: 8, delay: i * 320, duration: 300 }}>

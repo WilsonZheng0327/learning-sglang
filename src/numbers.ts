@@ -31,3 +31,4 @@ export const AUDIO_POS_PER_100 = 13;       // prompt positions per 100 feature f
 export const CODES_PER_FRAME = 16;         // speech out: codes that describe one frame of sound
 export const CODE_VALUES = 2048;           // each code is one of 2,048 values
 export const SAMPLES_PER_FRAME = 1920;     // sound samples the codec writes per frame (8 · 5 · 4 · 3 · 2 · 2)
+export const OMNI_HIDDEN = 2048;           // the thinker's width: numbers in one token's vector (and in one encoder embedding)

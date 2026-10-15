@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { fade } from 'svelte/transition';
   import StepControls from '../StepControls.svelte';
+  import LoopProgress from '../LoopProgress.svelte';
   import type { NavLink } from '../../chapters';
   import { SPEECH_IN_HZ, SPEECH_OUT_HZ, VISION_PATCH, VISION_MERGE, AUDIO_FRAMES_PER_SEC, AUDIO_POS_PER_100, CODES_PER_FRAME, CODE_VALUES, SAMPLES_PER_FRAME } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
@@ -21,10 +23,10 @@
 
   type Scene = 'request' | 'encoders' | 'speech' | 'map' | 'waits' | 'gpu';
   const steps: { scene: Scene; caption: string }[] = [
-    { scene: 'request', caption: `Text gets a tokenizer in front of the engine and a detokenizer after it (chapter 1). An omni request needs a converter on each side too: a photo and a spoken question in, a spoken answer out.` },
+    { scene: 'request', caption: `Text gets a tokenizer in front of the engine and a detokenizer after it (Ch. 1 Steps 2 and 11). An omni request needs a converter on each side too: a photo and a spoken question in, a spoken answer out.` },
     { scene: 'encoders', caption: `The left box is an encoder per input: a vision model turns the photo into ${fmt(IMG_POS)} prompt positions, an audio model turns the question into ${AUD_POS}. They join the prompt, and the engine prefills it as before.` },
     { scene: 'speech', caption: `Each token also goes to three more models. The talker writes a frame's code 0, the code predictor its codes 1–${CODES_PER_FRAME - 1}, then the next frame; every ${CHUNK} frames, code2wav turns them into sound.` },
-    { scene: 'map', caption: `The whole request is six models of two kinds. Three read their input and are done; three are loops like chapter 1's, where each step waits for the one before it.` },
+    { scene: 'map', caption: `The whole request is six models of two kinds. Three read their input and are done; three are loops like the one in Ch. 1 Step 11, where each step waits for the one before it.` },
     { scene: 'waits', caption: `The engine pauses only when its own scheduler runs something else. The talker pauses because its token isn't written yet, a check SGLang's scheduler never makes.` },
     { scene: 'gpu', caption: `Alone, the talker leaves its GPU nearly idle; shared, its step can land behind a long prefill, and neither loop sees the other. What decides how they share it, and how do tokens get across?` },
   ];
@@ -37,6 +39,8 @@
   const cur = $derived(steps[step]);
   // step 3's loop: frame by frame, code 0 from the talker, then codes 1–15 from the code predictor;
   // after the 10th frame code2wav turns the chunk into sound
+  let lap = $state(0), lapMs = $state(0);           // the looping step's laps, for LoopProgress
+  const nextLap = (ms: number) => untrack(() => { lapMs = ms; lap++; });   // untracked, so starting a lap does not re-run the effect
   let written = $state(0);                        // codes written so far, frame by frame
   let writer = $state<'' | 'talker' | 'predictor'>('');
   let c2w = $state(0);                            // 0 waiting, 1 running, 2 sound out
@@ -56,6 +60,7 @@
       at(300, () => (c2w = 1));
       at(1200, () => (c2w = 2));
       at(3000, run);
+      nextLap(t);
     };
     run();
     return () => timers.forEach(clearTimeout);
@@ -70,6 +75,7 @@
       iter = -1;
       for (let i = 0; i < ITERS; i++) timers.push(setTimeout(() => (iter = i), 700 + i * 450));
       timers.push(setTimeout(run, 700 + ITERS * 450 + 2600));
+      nextLap(700 + ITERS * 450 + 2600);
     };
     run();
     return () => timers.forEach(clearTimeout);
@@ -146,8 +152,8 @@
             <text x={DT + DTW / 2} y={YA + 4} text-anchor="middle" class="tag strong">detokenizer</text>
             <path d="M {DT + DTW + 4} {YA} H {OUT - 6}" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#om-arrow)" />
             <text x={OUT} y={YA + 4} class="mono">Paris</text>
-            <text x={TK + TKW / 2} y={YA + 32} text-anchor="middle" class="tag">chapter 1</text>
-            <text x={DT + DTW / 2} y={YA + 32} text-anchor="middle" class="tag">chapter 1</text>
+            <text x={TK + TKW / 2} y={YA + 32} text-anchor="middle" class="tag">Ch. 1 Step 2</text>
+            <text x={DT + DTW / 2} y={YA + 32} text-anchor="middle" class="tag">Ch. 1 Step 11</text>
           </g>
 
           <!-- omni: the same engine, and a box on each side still to be filled -->
@@ -250,7 +256,7 @@
             <rect x={IX} y="272" width={IMG_POS * S} height="14" fill="var(--accent)" opacity="0.7" />
             <rect x={AX} y="272" width={AUD_POS * S} height="14" fill="var(--gen)" opacity="0.8" />
             <text x="480" y="302" class="tag strong">the prompt: template tokens + {fmt(IMG_POS)} + {AUD_POS}</text>
-            <text x="480" y="316" class="tag">prefilled in one pass, as in chapter 4</text>
+            <text x="480" y="316" class="tag">prefilled in one pass, as in Ch. 4 Step 3</text>
           </g>
 
           <g in:fade={{ delay: 1700 }}>
@@ -386,7 +392,7 @@
             <rect x="18" y="300" width="16" height="11" rx="3" fill={one.fill} stroke={one.stroke} />
             <text x="42" y="310" class="legend"><tspan class="strong">one pass:</tspan> reads its input, writes its output, and is done</text>
             <rect x="18" y="322" width="16" height="11" rx="3" fill={loop.fill} stroke={loop.stroke} />
-            <text x="42" y="332" class="legend"><tspan class="strong">a loop:</tspan> forward, pick, append, as in chapter 1, each step waiting for the one before</text>
+            <text x="42" y="332" class="legend"><tspan class="strong">a loop:</tspan> forward, pick, append, as in Ch. 1 Step 11, each step waiting for the one before</text>
           </g>
 
           <!-- the inputs and the encoders -->
@@ -509,14 +515,14 @@
               <text x={c ? mid(c) : cx(0) + 7} y="272" text-anchor="middle" class="tag">{c ? c : 'arrives'}</text>
             {/each}
             <text x={cx(0) - 16} y="290" class="tag">iterations →</text>
-            <text x={cx(ITERS)} y="290" text-anchor="end" class="tag">P = prefill · the engine's prefill also writes token 1 (chapter 1)</text>
+            <text x={cx(ITERS)} y="290" text-anchor="end" class="tag">P = prefill · the engine's prefill also writes token 1 (Ch. 1 Step 4)</text>
             <text x={cx(ITERS)} y="304" text-anchor="end" class="tag">a number: the token that step writes (engine) or reads (talker)</text>
           </g>
           <g in:fade={{ delay: 700 }}>
             <rect x="30" y="321" width="660" height="28" rx="14" fill="var(--accent-soft)" stroke="var(--accent)" />
             <text x={W / 2} y="340" text-anchor="middle" class="need"><tspan class="strong">needed:</tspan> each token handed over as it is written, and a talker loop that checks it has arrived</text>
           </g>
-          <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">busy: the engine runs other requests that iteration, such as a prefill (chapter 6) · the talker's frame comes from its own step</text>
+          <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">busy: the engine runs other requests that iteration, such as a prefill (Ch. 6 Step 4) · the talker's frame comes from its own step</text>
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang-Omni adds the talker's wait: talker_scheduler.py holds a decode batch until every request in it has its next token</text>
         </g>
       {/if}
@@ -566,7 +572,7 @@
           </g>
 
           <g in:fade={{ delay: 1500 }}>
-            <text x="16" y="288" class="legend">inside one engine, chapter 6's scheduler made this call; here each model has its own loop, and neither sees the other's queue</text>
+            <text x="16" y="288" class="legend">inside one engine, Ch. 6 Step 9's scheduler made this call; here each model has its own loop, and neither sees the other's queue</text>
           </g>
           <g in:fade={{ delay: 700 }}>
             <rect x="30" y="313" width="660" height="28" rx="14" fill="var(--accent-soft)" stroke="var(--accent)" />
@@ -576,6 +582,7 @@
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang-Omni's design notes: a talker alone on an H200 sat at under 2% utilization, so stages may now share GPUs</text>
         </g>
       {/if}
+      {#if cur.scene === 'speech' || cur.scene === 'waits'}<LoopProgress ms={lapMs} {lap} />{/if}
     </svg>
   </div>
 

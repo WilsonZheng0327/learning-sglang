@@ -17,7 +17,7 @@
   const steps: Step[] = [
     { scene: 'system', v: 0, caption: `Launch the server. It loads the ${W_GB} GB of weights onto the GPU, carves the rest of the card into a KV pool, and opens an HTTP port. Then it waits.` },
     { scene: 'system', v: 1, caption: `A client sends a chat request: JSON over HTTP, with <code>stream: true</code>. The server parses it and applies the chat template. Now it has a string, and the GPU can't use a string.` },
-    { scene: 'system', v: 2, caption: `Tokenization turns the text into ids, chapter 1's first step. It's CPU work: microseconds for a short prompt, a couple of milliseconds for a long one. Now the ids need to reach the scheduler.` },
+    { scene: 'system', v: 2, caption: `Tokenization turns the text into ids, Ch. 1 Step 2. It's CPU work: microseconds for a short prompt, a couple of milliseconds for a long one. Now the ids need to reach the scheduler.` },
     { scene: 'timeline', v: 0, caption: `Put it all in one process and the scheduler loop shares one Python interpreter with the HTTP server, the tokenizer, and the detokenizer. Python runs one at a time, so every one of those jobs lands between steps while the GPU idles.` },
     { scene: 'timeline', v: 1, caption: `So SGLang splits the work into three processes: one talks HTTP and tokenizes, one runs the scheduler loop that drives the GPU and nothing else, one turns ids back into text. Three interpreters on three cores; the loop never waits.` },
     { scene: 'queue', v: 0, caption: `Three processes need a way to hand things over. <b>ZeroMQ</b> is a queue between processes: the tokenizer drops a message in and moves on. At the top of every step the scheduler takes out whatever has arrived. Neither waits for the other.` },
@@ -187,7 +187,7 @@
             {/if}
           {/if}
           {#if v === 0}
-            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 900 }}>weights loaded once; the KV pool is the {HBM_GB - W_GB} GB from chapter 7; the loop from chapter 6 is already spinning</text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 900 }}>weights loaded once; the KV pool is the {HBM_GB - W_GB} GB from Ch. 7 Step 1; the loop from Ch. 6 Step 9 is already spinning</text>
           {/if}
         </g>
       {/if}
@@ -361,7 +361,7 @@
           <text x="16" y="44" class="rowlabel">an example load · {OPEN.toLocaleString()} chat tabs open on this server</text>
           {#each [
             { v: OPEN.toLocaleString(), l: 'open connections', s: ['an assumption for this example', `${idle.toLocaleString()} idle · ${RUNNING} running · ${WAITING} queued`], c: 'var(--accent)' },
-            { v: String(RUNNING), l: 'running', s: ["chapter 7's memory cap at 4k context", `${HBM_GB - W_GB} GB ÷ 524 MB = ${RUNNING} running at most`], c: 'var(--gen)' },
+            { v: String(RUNNING), l: 'running', s: ["Ch. 7 Step 2's memory cap at 4k context", `${HBM_GB - W_GB} GB ÷ 524 MB = ${RUNNING} running at most`], c: 'var(--gen)' },
             { v: String(WAITING), l: 'waiting', s: ['submitted this second, not yet admitted', 'connection open, no tokens yet'], c: 'var(--eos)' },
           ] as t, i}
             {@const x = 24 + i * 226}

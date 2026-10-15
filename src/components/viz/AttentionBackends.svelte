@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { fade, fly } from 'svelte/transition';
   import StepControls from '../StepControls.svelte';
+  import LoopProgress from '../LoopProgress.svelte';
   import katex from 'katex';
   import type { NavLink } from '../../chapters';
   import { HEADS, KV_HEADS, HEAD_DIM as HD, LAYERS, BYTES, W_GB, BW, TFLOPS, SMS } from '../../numbers';
@@ -74,7 +76,7 @@
     heads: `The model fixes how many query heads share a K/V head (1, ${GROUP} or ${MLA_HEADS}) and how wide k and v are. A kernel is compiled for one width: MHA and GQA are both ${HD} and share one; MLA's ${MLA_K} and ${MLA_V} need their own.`,
     shapes: `Prefill has a query per prompt token, so a tile of ${TILE_Q} queries × ${GROUP} heads uses each K/V byte ${TILE_Q * GROUP} times, and the math outlasts the read. Decode has one query: ${GROUP} uses, and the read sets the time. So every backend ships two kernels.`,
     split: `At batch 1 a decode layer runs one block per K/V head: ${KV_HEADS} blocks on ${KV_HEADS} of ${SMS} SMs. Cut each head's keys into ${SPLITS} chunks and ${KV_HEADS * SPLITS} blocks read at once, ${SPLITS}× sooner; a merge then combines their partial results.`,
-    pages: `Without pages, a request's K and V are consecutive rows, and the kernel computes each row's address. With pages (chapter 7) rows sit anywhere in a pool, so the kernel reads a table of page numbers first: a different kernel.`,
+    pages: `Without pages, a request's K and V are consecutive rows, and the kernel computes each row's address. With pages (Ch. 7 Step 4) rows sit anywhere in a pool, so the kernel reads a table of page numbers first: a different kernel.`,
     hardware: `Each GPU generation adds units a kernel must be written to use. On one H100, ${nb('FlashAttention-2')} (written for the A100) reaches 35% of peak and ${nb('FlashAttention-3')} (written for the H100) 75%. So each generation gets its own kernels.`,
     interface: `Many kernels, one model. The model calls one interface, and every backend fills the same slots: the plan (step ${at('pages')}), a prefill and a decode kernel (steps ${at('shapes')}–${at('split')}), and graph buffers. Which backend fills them is step ${at('backends')}.`,
     backends: `Each backend covers some head layouts, page sizes and GPUs. SGLang picks by GPU and model: fa3 on Hopper, trtllm_mha on Blackwell, aiter on AMD, flashinfer on other NVIDIA, triton when nothing else fits.`,
@@ -92,6 +94,8 @@
 
   // within-step phases, both looping: the online-softmax chunk walk, and the split-KV race
   const SLOW_MS = 6400, FAST_MS = SLOW_MS / SPLITS;         // one block walking all the keys, against 16 walking a 16th each
+  let lap = $state(0), lapMs = $state(0);           // the looping step's laps, for LoopProgress
+  const nextLap = (ms: number) => untrack(() => { lapMs = ms; lap++; });   // untracked, so starting a lap does not re-run the effect
   let phase = $state(0);
   $effect(() => {
     const s = step;
@@ -105,7 +109,8 @@
         ? [[1, 1400], [2, 1400], [3, 1400], [4, 1400], [5, 1400], [0, 2600]]
         : [[1, 600], [2, FAST_MS + 300], [3, SLOW_MS - FAST_MS], [0, 2600]];
       let i = 0;
-      const tick = () => { const [ph, wait] = cycle[i]; timers.push(setTimeout(() => { phase = ph; i = (i + 1) % cycle.length; tick(); }, wait)); };
+      nextLap(cycle.reduce((a, [, w]) => a + w, 0));
+      const tick = () => { const [ph, wait] = cycle[i]; timers.push(setTimeout(() => { phase = ph; i = (i + 1) % cycle.length; if (i === 0) nextLap(lapMs); tick(); }, wait)); };
       tick();
     }
     return () => timers.forEach(clearTimeout);
@@ -491,7 +496,7 @@
               <rect x={PXG + c * CELL} y={GY + r * CELL} width={CELL - 1} height={CELL - 1} fill={c > r ? LIGHT : inTile ? RED : DARK} opacity={inTile ? 0.85 : 1} />
             {/each}{/each}
             <rect x={PXG + REUSE * CELL - 1.5} y={GY + T * CELL - 1.5} width={CELL + 2} height={T * CELL + 2} fill="none" stroke="var(--fg)" stroke-width="1.5" />
-            {#each [{ y: 90, fill: LIGHT, t: 'skipped: keys after the query (chapter 2)' }, { y: 104, fill: DARK, t: 'scored in other tiles' }] as k}
+            {#each [{ y: 90, fill: LIGHT, t: 'skipped: keys after the query (Ch. 2 Step 7)' }, { y: 104, fill: DARK, t: 'scored in other tiles' }] as k}
               <rect x={PXG + N * CELL + 14} y={k.y - 8} width="8" height="8" fill={k.fill} stroke="var(--line)" />
               <text x={PXG + N * CELL + 26} y={k.y} class="tag">{k.t}</text>
             {/each}
@@ -531,9 +536,9 @@
               <rect x={BX} y={r.y + 16} width={mw} height="12" rx="2" fill={GREEN} opacity="0.9" />
               <text x={BX + mw + 6} y={r.y + 26} class="tag">math · {r.u} × {chunkB / 1024} K flops ÷ {TFLOPS} TFLOP/s = <tspan class="strong">{fmtNs(mathNs(r.u))}</tspan></text>
             {/each}
-            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">a use is one multiply-add on a 2-byte number: 1 flop per byte · the bars are equal at {TFLOPS} ÷ {BW} ≈ {BAL} uses, chapter 4's balance point</text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">a use is one multiply-add on a 2-byte number: 1 flop per byte · the bars are equal at {TFLOPS} ÷ {BW} ≈ {BAL} uses, Ch. 4 Step 8's balance point</text>
           </g>
-          <text x="16" y="362" class="legend" in:fade={{ delay: 1800 }}>so every backend has two kernels: <tspan class="mono">forward_extend</tspan> for prefill (it extends a cached prefix, chapter 8) and <tspan class="mono">forward_decode</tspan></text>
+          <text x="16" y="362" class="legend" in:fade={{ delay: 1800 }}>so every backend has two kernels: <tspan class="mono">forward_extend</tspan> for prefill (it extends a cached prefix, Ch. 8 Step 2) and <tspan class="mono">forward_decode</tspan></text>
         </g>
       {/if}
 
@@ -591,7 +596,7 @@
             <text x={tx} y={GRIDY + 39} class="tag">{KV_HEADS} × {kvHeadLayerMB.toFixed(1)} MB ÷ {pulled.toFixed(2)} TB/s = {ms(tLayer(lit))}</text>
             <text x={tx} y={GRIDY + 57} class="tag strong">× {LAYERS} layers = {fmtMs(tLayer(lit) * LAYERS)}</text>
           {/each}
-          <text x="18" y="332" class="pt">·</text><text x="28" y="332" class="legend">a block is one piece of a kernel; it runs on one SM, one of the H100's {SMS} processors (chapter 13)</text>
+          <text x="18" y="332" class="pt">·</text><text x="28" y="332" class="legend">a block is one piece of a kernel; it runs on one SM, one of the H100's {SMS} processors (Ch. 13 Step 8)</text>
           <text x="18" y="350" class="pt">·</text><text x="28" y="350" class="legend">decode is memory-bound (step {at('shapes')}): more SMs pulling means the same bytes arrive sooner</text>
           <text x="18" y="368" class="pt">·</text><text x="28" y="368" class="legend">each piece ends with its own m, ℓ, out; a merge combines a head's {SPLITS} with step {at('flash')}'s rescaling</text>
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">assumes each busy SM pulls an even 1/{SMS} of {BW} TB/s, a simplification</text>
@@ -625,7 +630,7 @@
 
           <!-- with pages: rows anywhere in a pool, found through two arrays -->
           <g in:fade={{ delay: 600, duration: 250 }}>
-            <text x="40" y="160" class="boxtitle">with pages · chapter 7</text>
+            <text x="40" y="160" class="boxtitle">with pages · Ch. 7 Step 4</text>
             <text x="40" y="176" class="slab strong small">each token's row in any free page of a shared pool</text>
             <text x="40" y="201" class="tag">the KV pool</text>
             {#each Array(POOL) as _, p}
@@ -661,7 +666,7 @@
           <g in:fade={{ delay: 1500 }}>
             <text x="18" y="342" class="pt">·</text><text x="28" y="342" class="legend">a kernel written for one tensor would read the wrong rows from a pool; reading through a table is another kernel</text>
             <text x="18" y="360" class="pt">·</text><text x="28" y="360" class="legend">kernels written for bigger pages (16 to 128 rows) look up once per page, not per token (step {at('backends')})</text>
-            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">the CPU rebuilds both arrays every batch, in <tspan class="mono">init_forward_metadata</tspan>: chapter 12's sequence boundaries</text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">the CPU rebuilds both arrays every batch, in <tspan class="mono">init_forward_metadata</tspan>: Ch. 12 Step 4's sequence boundaries</text>
           </g>
         </g>
       {/if}
@@ -707,7 +712,7 @@
             {/each}
           </g>
           <g in:fade={{ delay: 1600 }}>
-            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">Triton, chapter 13's kernel language, compiles one source for any of these GPUs: portable, usually slower</text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">Triton, Ch. 13 Step 5's kernel language, compiles one source for any of these GPUs: portable, usually slower</text>
           </g>
         </g>
       {/if}
@@ -757,7 +762,7 @@
             <!-- the graph buffers -->
             <rect x={BXL + 10} y="240" width={BXR - BXL - 20} height="52" rx="6" fill="white" stroke="var(--gen)" />
             <text x={BXL + 20} y="256" class="mono strong">init_cuda_graph_state(max_bs)</text>
-            <text x={BXL + 20} y="271" class="tag">chapter 11's graph replays at fixed addresses, so</text>
+            <text x={BXL + 20} y="271" class="tag">Ch. 11 Step 13's graph replays at fixed addresses, so</text>
             <text x={BXL + 20} y="284" class="tag">each step writes its plan into arrays made once</text>
           </g>
           <g in:fade={{ delay: 800, duration: 250 }}>
@@ -855,7 +860,7 @@
             </g>
           {/each}
           <g in:fade={{ delay: 1500 }}>
-            <text x="18" y="232" class="pt">·</text><text x="28" y="232" class="legend">one pass can compute consecutive positions, as prefill does for a prompt (chapter 4): the weights are read once for all {FIVE}</text>
+            <text x="18" y="232" class="pt">·</text><text x="28" y="232" class="legend">one pass can compute consecutive positions, as prefill does for a prompt (Ch. 4 Step 3): the weights are read once for all {FIVE}</text>
             <text x="18" y="250" class="pt">·</text><text x="28" y="250" class="legend">the {FIVE} positions read the same cache: {FIVE} × {GROUP} = {FIVE * GROUP} uses per K/V byte, far below ~{BAL}, so attention stays {fmtMs(attn)} (step {at('shapes')})</text>
             <text x="18" y="268" class="pt">·</text><text x="28" y="268" class="legend">only the math grows, {mathMs} ms per position</text>
           </g>
@@ -864,10 +869,11 @@
             <text x={W / 2} y="332" text-anchor="middle" class="legend">But each position's input is the token before it, and decode has only the last one.</text>
             <text x={W / 2} y="350" text-anchor="middle" class="legend">Where would the other {FIVE - 1} inputs come from?</text>
           </g>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">math per position: 16 GFLOP ÷ {TFLOPS} TFLOP/s = {mathMs} ms (chapter 4) · the new positions' own k and v writes are too small to draw</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">math per position: 16 GFLOP ÷ {TFLOPS} TFLOP/s = {mathMs} ms (Ch. 4 Step 5) · the new positions' own k and v writes are too small to draw</text>
         </g>
       {/if}
 
+      {#if cur.scene === 'flash' || cur.scene === 'split'}<LoopProgress ms={lapMs} {lap} />{/if}
     </svg>
   </div>
 

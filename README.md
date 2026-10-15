@@ -45,8 +45,8 @@ Speech and vision break the assumptions of Part I, one at a time.
 | # | Chapter | Hook | Status |
 |---|---|---|---|
 | 15 | [Omni models](https://wilsonzheng0327.github.io/learning-sglang/ch/15-omni-models/) | Pixels and speech in, speech out. | live |
-| 16 | Stages and schedulers | Eight stages, three kinds of scheduler. | planned |
-| 17 | Between stages | How a token gets from one process to the next. | planned |
+| 16 | [Stages and schedulers](https://wilsonzheng0327.github.io/learning-sglang/ch/16-stages-and-schedulers/) | Seven stages, three kinds of scheduler. | live |
+| 17 | [Between stages](https://wilsonzheng0327.github.io/learning-sglang/ch/17-between-stages/) | Eight edges, four ways to cross them. | live |
 | 18 | Sharing GPUs | Several models, one card. | planned |
 | 19 | Streaming audio decode | Output with a real-time deadline. | planned |
 | 20 | Full duplex | Listening while speaking. | planned |

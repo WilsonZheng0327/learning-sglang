@@ -28,8 +28,8 @@ export const chapters: Chapter[] = [
   { part: 'fast', slug: '14-attention-backends', title: 'Attention backends', hook: 'Why there are five kernels for one equation.', ready: true },
 
   { part: 'omni', slug: '15-omni-models', title: 'Omni models', hook: 'Pixels and speech in, speech out.', ready: true },
-  { part: 'omni', slug: '16-stages-and-schedulers', title: 'Stages and schedulers', hook: 'Eight stages, three kinds of scheduler.', ready: false },
-  { part: 'omni', slug: '17-between-stages', title: 'Between stages', hook: 'How a token gets from one process to the next.', ready: false },
+  { part: 'omni', slug: '16-stages-and-schedulers', title: 'Stages and schedulers', hook: 'Seven stages, three kinds of scheduler.', ready: true },
+  { part: 'omni', slug: '17-between-stages', title: 'Between stages', hook: 'Eight edges, four ways to cross them.', ready: true },
   { part: 'omni', slug: '18-sharing-gpus', title: 'Sharing GPUs', hook: 'Several models, one card.', ready: false },
   { part: 'omni', slug: '19-streaming-audio', title: 'Streaming audio decode', hook: 'Output with a real-time deadline.', ready: false },
   { part: 'omni', slug: '20-full-duplex', title: 'Full duplex', hook: 'Listening while speaking.', ready: false },

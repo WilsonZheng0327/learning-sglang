@@ -19,19 +19,19 @@
   type Scene = 'zoom' | 'layer' | 'lanes' | 'eager' | 'record' | 'replay' | 'shape' | 'ladder' | 'pad' | 'shapes' | 'buffers' | 'closing';
   interface Step { caption: string; scene: Scene; v?: number }
   const steps: Step[] = [
-    { scene: 'zoom', v: 0, caption: `Back to chapter 9's three lanes. The scheduler's lane is a row of decode steps, ${fmt(tMem)} each. Pick one and zoom in.` },
+    { scene: 'zoom', v: 0, caption: `Back to Ch. 9 Step 5's three lanes. The scheduler's lane is a row of decode steps, ${fmt(tMem)} each. Pick one and zoom in.` },
     { scene: 'zoom', v: 1, caption: `One step is one forward pass through the whole model. Our example throughout is <b>Llama-3-8B</b>: an embedding, ${LAYERS} identical layers, a final projection to logits, then sampling. Almost all of the ${fmt(tMem)} is the ${LAYERS} layers.` },
     { scene: 'layer', caption: `Zoom into a layer and it isn't one thing either. The GPU runs it as 11 kernels: norm, QKV matmul, RoPE, attention, output matmul, add, norm, gate-up matmul, SiLU, down matmul, add. Times ${LAYERS}, plus the ends: about a thousand kernels a step.` },
     { scene: 'lanes', v: 0, caption: `Each kernel is launched by the CPU: Python, PyTorch's dispatcher, the CUDA driver, about ${LAUNCH_US} µs each. A thousand of them is ${fmt(launchMs)} of CPU work for a step whose GPU work is ${fmt(tMem)}. At small batch the GPU waits on its launcher.` },
     { scene: 'eager', caption: `Closer still. <b>Eager mode</b> is a conversation, one kernel at a time: Python calls PyTorch, the dispatcher picks a kernel, the driver hands it over. About ${LAUNCH_US} µs to ask, ${kernelUs} µs to run, then the GPU waits.` },
     { scene: 'record', caption: `<b>Recording.</b> Run the step once with capture on and nothing executes. Each launch is written down instead: which kernel, which addresses it reads and writes, how many rows. Built once at startup, not once per step.` },
     { scene: 'replay', caption: `<b>Replay.</b> One call hands the GPU the finished list, and it walks the entries itself, back to back. A thousand round trips became one, and the CPU is out of the loop for the rest of the step.` },
-    { scene: 'lanes', v: 1, caption: `Back to the two lanes. The CPU spends ${REPLAY_US} µs, the GPU runs the thousand kernels back to back: ${fmt(tMem)}. The CPU is free for the whole step, which is exactly what chapter 10's overlap needed.` },
+    { scene: 'lanes', v: 1, caption: `Back to the two lanes. The CPU spends ${REPLAY_US} µs, the GPU runs the thousand kernels back to back: ${fmt(tMem)}. The CPU is free for the whole step, which is exactly what Ch. 10 Step 8's overlap needed.` },
     { scene: 'shape', caption: `A recording is literal: this kernel, these addresses, this many rows. Give it more rows than it saw and the extra ones are never touched — including the output buffer the CPU reads afterwards. Nothing below the engine will stop you.` },
     { scene: 'ladder', caption: `But the running batch changes size every few steps as requests finish and join. So at startup the engine records a ladder of graphs, one per size: ${CAPTURED.slice(0, 4).join(', ')} … ${CAPTURED[CAPTURED.length - 1]}. A few seconds, once.` },
     { scene: 'pad', caption: `So a batch of 37 is padded up to the next rung, 48. The 11 dummy rows go through the whole step and their logits are thrown away, which still costs far less than a thousand launches.` },
-    { scene: 'shapes', caption: `Only decode gets graphs: its batches are [B, 1], so the ladder covers them. Prefill is ragged, different every batch, and runs eagerly, which is fine because prefill is compute-bound anyway. Chapter 6's two shapes, again.` },
-    { scene: 'buffers', caption: `The addresses are frozen, so nothing can be passed in as an argument. Instead each request's sampled token is written back into its own slot in the same buffer, and the same recording is replayed. Chapter 1's loop, in place.` },
+    { scene: 'shapes', caption: `Only decode gets graphs: its batches are [B, 1], so the ladder covers them. Prefill is ragged, different every batch, and runs eagerly, which is fine because prefill is compute-bound anyway. Ch. 6 Step 3's two shapes, again.` },
+    { scene: 'buffers', caption: `The addresses are frozen, so nothing can be passed in as an argument. Instead each request's sampled token is written back into its own slot in the same buffer, and the same recording is replayed. Ch. 1 Step 11's loop, in place.` },
     { scene: 'closing', caption: `What a graph can't hold: anything data-dependent. MoE routing, speculative verification, attention plans that change shape, a .item() that syncs with the CPU. Cut the graph there and replay the pieces: chapter ${CH_NEXT}.` },
   ];
 
@@ -107,7 +107,7 @@
         <g transition:fade={{ duration: 250 }}>
           {#if v === 0}
             <g out:fade={{ duration: 300 }}>
-              <text x="16" y="44" class="rowlabel">chapter 9 · three processes · the scheduler's lane is decode steps</text>
+              <text x="16" y="44" class="rowlabel">Ch. 9 Step 5 · three processes · the scheduler's lane is decode steps</text>
               {#each [['server + tokenizer', LANE.server], ['scheduler + GPU', LANE.sched], ['detokenizer', LANE.detok]] as [name, y]}
                 <text x={TL.x - 10} y={(y as number) + 18} text-anchor="end" class="rowlabel">{name}</text>
                 <line x1={TL.x} y1={(y as number) + 14} x2={TL.x + 25 * TL.pxPerMs} y2={(y as number) + 14} stroke="var(--line)" />
@@ -145,7 +145,7 @@
               <text x={BAR.x + BAR.w} y={BAR.y + BAR.h + 16} text-anchor="end" class="tag">lm_head · sample</text>
               <g in:fade={{ delay: 1400 }}>
                 <text x={BAR.x - 10} y="180" class="pt">·</text><text x={BAR.x} y="180" class="legend">the model, once: <tspan class="strong">ids → embedding → layer 1 → layer 2 → … → layer {LAYERS} → logits → one token</tspan></text>
-                <text x={BAR.x - 10} y="204" class="pt">·</text><text x={BAR.x} y="204" class="legend">every layer reads its slice of the 16 GB of weights (chapter 4) and its slice of the KV cache (chapter 3)</text>
+                <text x={BAR.x - 10} y="204" class="pt">·</text><text x={BAR.x} y="204" class="legend">every layer reads its slice of the 16 GB of weights (Ch. 4 Step 2) and its slice of the KV cache (Ch. 3 Step 3)</text>
                 <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">each layer is a few hundred microseconds; the picture is about to get finer</text>
               </g>
             </g>
@@ -338,7 +338,7 @@
           <g in:fade={{ delay: 900, duration: 300 }}>
             <text x="54" y="180" class="tag">then nothing. The CPU is free</text>
             <text x="54" y="196" class="tag">for the rest of the step —</text>
-            <text x="54" y="212" class="tag">chapter 10's overlap, paid for.</text>
+            <text x="54" y="212" class="tag">Ch. 10 Step 8's overlap, paid for.</text>
           </g>
 
           {#each listed as r, i}

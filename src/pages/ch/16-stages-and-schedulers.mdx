@@ -1,0 +1,23 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 16-stages-and-schedulers
+---
+import StagesSchedulers from '../../components/viz/StagesSchedulers.svelte';
+import { neighbors } from '../../chapters';
+
+<StagesSchedulers client:load {...neighbors('16-stages-and-schedulers')} />
+
+<details>
+<summary>Where this chapter's claims come from</summary>
+
+**SGLang-Omni.** The stages, their schedulers and their defaults are read from [SGLang-Omni](https://github.com/sgl-project/sglang-omni)'s Qwen3-Omni pipeline and its design notes (`docs/design/refactor_rfc.md`).
+
+**The code predictor's cache.** The code predictor keeps a cache like any decoder, but a short one: the talker's hidden state, code 0 and the codes it picks, 16 positions, and it starts over every frame. There is nothing in it for a stage's scheduler to keep between steps, which is a second reason it lives inside the talker's step.
+
+**The schedulers, by name.** One pass is `SimpleScheduler`; it batches whatever is already waiting (up to 32 requests for each encoder) and by default does not wait for more. A loop is `OmniScheduler`, which calls SGLang's own `Scheduler` methods on its own state and overrides only the ones that touch the inbox or the model runner; the talker's `QwenTalkerScheduler` adds the ready check on top. Streaming is `StreamingDetokenizeScheduler` for decode and `Code2WavScheduler` for code2wav, each written for its stage.
+
+**What the talker switches off.** Its configuration turns off overlap scheduling, the radix cache and chunked prefill. The reasons on the stage for the first two are this book's reading of the code: each talker step's input is the frame the step before wrote, and its prompt arrives as vectors rather than token ids. SGLang-Omni's code does not say why chunked prefill is off, so the stage only notes that it is.
+
+**The detokenizer's example.** How Qwen3-Omni's tokenizer splits a particular emoji into tokens is not shown here; the stage only uses one to show a character arriving in two pieces.
+
+</details>

@@ -138,7 +138,7 @@
             </g>
           {/each}
           <g in:fade={{ delay: 1400 }}>
-            <text x={BAR.x} y="360" class="legend">chapter 5's sweet spot was {BALANCE} requests decoding at once;</text>
+            <text x={BAR.x} y="360" class="legend">Ch. 5 Step 4's sweet spot was {BALANCE} requests decoding at once;</text>
             <text x={BAR.x} y="378" class="legend">the most this card ever holds is {capAt(4096)}, and that's at a short context</text>
           </g>
         </g>

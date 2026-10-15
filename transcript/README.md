@@ -21,3 +21,5 @@ Read it to check wording and numbers across chapters without opening the compone
 | 13 | [torch.compile](13-torch-compile.md) | 11 |
 | 14 | [Attention backends](14-attention-backends.md) | 12 |
 | 15 | [Omni models](15-omni-models.md) | 6 |
+| 16 | [Stages and schedulers](16-stages-and-schedulers.md) | 12 |
+| 17 | [Between stages](17-between-stages.md) | 11 |

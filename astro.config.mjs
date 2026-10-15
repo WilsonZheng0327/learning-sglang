@@ -18,4 +18,7 @@ export default defineConfig({
     processor: unified({ remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] }),
     shikiConfig: { theme: 'github-light' },
   },
+  // KaTeX is the only package a viz imports (chapter 14). Bundle it when the dev server starts: found later, it
+  // re-runs Vite's dependency step and leaves chapter 14 importing an outdated copy (a 504, and the stage never loads).
+  vite: { optimizeDeps: { include: ['katex'] } },
 });
