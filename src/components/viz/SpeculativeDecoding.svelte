@@ -20,8 +20,8 @@
   // the running example: chapter 1's prompt, the target's continuation, and a draft that misses on the 4th token
   const CTX = 'The capital of France is';
   const TARGET = [' Paris', '.', ' It', ' is'];
-  const DRAFT = [' Paris', '.', ' It', ' has'];
-  const KEPT = DRAFT.findIndex((t, i) => t !== TARGET[i]);   // 3 kept, then the target's own token
+  const DRAFT = [' Paris', '.', ' The', ' city'];
+  const KEPT = DRAFT.findIndex((t, i) => t !== TARGET[i]);   // 2 agreed; the 3rd is the target's own, the 4th thrown away
 
   // DSpark's Table 1, Qwen3-8B target, accepted length per round (counting the target's own token)
   const TABLE = [
@@ -33,7 +33,7 @@
   type Scene = 'before' | 'after' | 'map' | 'eagle' | 'dflash' | 'dspark' | 'compare';
   const steps: { scene: Scene; caption: string }[] = [
     { scene: 'before', caption: `Normal decoding writes one token per pass, and each pass reads all ${W_GB} GB of weights in ${fmt1(T_READ)} ms. Five positions in one pass do 5 times the math, and the math still finishes inside that one read.` },
-    { scene: 'after', caption: `So guess the next tokens. A draft model proposes ${N}, and the target checks them all in one pass. It keeps the ones it agrees with and adds its own at the first miss, here ${KEPT + 1} tokens for one read.` },
+    { scene: 'after', caption: `So guess the next tokens. A draft model proposes ${N}, and the target checks them in one pass. It keeps the ones it agrees with, puts its own token at the first miss, and drops the rest, here ${KEPT + 1} tokens.` },
     { scene: 'map', caption: `The three drafters differ in how they make the ${N} guesses. EAGLE makes them one pass at a time, DFlash all in one pass, and DSpark in one pass plus a short chain that links each guess to the one before.` },
     { scene: 'eagle', caption: `EAGLE drafts with one extra layer that reads the target's own hidden states. Each pass makes one guess, and the next pass needs that guess, so ${N} guesses take ${N} passes in a row.` },
     { scene: 'dflash', caption: `DFlash's drafter is 5 small layers of its own, fed the target's hidden states as context. The last token and ${N - 1} blanks go through all 5 layers once, and ${N} guesses come out together.` },
@@ -69,10 +69,11 @@
   const RED = 'var(--eos)', GREEN = '#16a34a', DRAFT_C = 'var(--gen)', TARGET_C = 'var(--accent)';
 
   // the shared time axis of steps 1 and 2
-  const X0 = 30, PX_MS = 26;
+  const X0 = 74, PX_MS = 26;
   const tx = (ms: number) => X0 + ms * PX_MS;
-  const MATH_W = 6;                                     // one position's math, drawn wide enough to see
-  const MATH_X = Math.round(MATH_W / (T_TOK * PX_MS));  // how much wider than scale
+  const BURSTS = 16;                                    // the compute lane's bursts, a layer pair each: math happens as each layer's weights arrive
+  const BURST_W = 1.2;                                  // one position's burst, drawn wide enough to see
+  const MATH_X = Math.round((BURSTS * BURST_W) / (T_TOK * PX_MS));   // how much wider than scale
   const T_GUESS = 0.3;                                  // one draft guess, drawn at a nominal length (steps 4–6)
   const DRAFT_END = N * T_GUESS;
   // the rows steps 1 and 2 share
@@ -101,12 +102,18 @@
       {#snippet pass(t0: number, y: number, positions: number, label: string)}
         <rect x={tx(t0)} {y} width={T_READ * PX_MS - 3} height={BAR_H} rx="4" fill="#5b5b5b" />
         <text x={tx(t0) + (T_READ * PX_MS) / 2} y={y + 15} text-anchor="middle" class="tag onbox">{label}</text>
-        {#each Array(positions) as _, j}
-          <rect x={tx(t0) + 3 + j * (MATH_W + 2)} y={y + BAR_H + 3} width={MATH_W} height="6" rx="1.5" fill={TARGET_C} />
+        <rect x={tx(t0)} y={y + BAR_H + 3} width={T_READ * PX_MS - 3} height="8" rx="2" fill="none" stroke="var(--line)" />
+        {#each Array(BURSTS) as _, b}
+          <rect x={tx(t0) + 1 + (b * (T_READ * PX_MS - 5)) / BURSTS} y={y + BAR_H + 4} width={BURST_W * positions} height="6" rx="0.5" fill={TARGET_C} />
         {/each}
+      {/snippet}
+      {#snippet lanes(y: number)}
+        <text x={X0 - 8} y={y + 15} text-anchor="end" class="tag strong">memory</text>
+        <text x={X0 - 8} y={y + BAR_H + 10} text-anchor="end" class="tag strong">compute</text>
       {/snippet}
       {#snippet autoregressive()}
         <text x="16" y="64" class="boxtitle">normal autoregressive decoding</text>
+        {@render lanes(YA)}
         {#each TARGET as t, i}
           <rect x={tx(i * T_READ) + 32} y="72" width={T_READ * PX_MS - 67} height="18" rx="5" fill="var(--accent-soft)" stroke={TARGET_C} />
           <text x={tx(i * T_READ) + (T_READ * PX_MS) / 2 - 1} y="85" text-anchor="middle" class="mono strong">{t.trim()}</text>
@@ -122,22 +129,24 @@
           <g in:fade={{ delay: 100, duration: 250 }}>{@render autoregressive()}</g>
           <g in:fade={{ delay: 600, duration: 250 }}>
             <text x="16" y="152" class="boxtitle">one pass over 5 positions · if the next {N} tokens were known</text>
+            {@render lanes(YB)}
             {@render pass(0, YB, 5, 'reads 16 GB')}
             <text x={tx(T_READ) + 8} y={YB + 15} class="tag strong">one read · {fmt1(T_READ)} ms</text>
+            <text x={tx(T_READ) + 8} y={YB + 30} class="tag">5 positions' math: still inside the read</text>
             {@render axis(AXIS_Y)}
           </g>
           <g in:fade={{ delay: 900, duration: 250 }}>
             <rect x="16" y="240" width="16" height="10" rx="2" fill="#5b5b5b" />
             <text x="38" y="249" class="tag">reading {W_GB} GB of weights, {fmt1(T_READ)} ms</text>
-            <rect x="250" y="242" width={MATH_W} height="6" rx="1.5" fill={TARGET_C} />
-            <text x="262" y="249" class="tag">one position's math, {T_TOK.toFixed(3)} ms</text>
+            <rect x="270" y="242" width="6" height="6" rx="1" fill={TARGET_C} />
+            <text x="282" y="249" class="tag">math, done layer by layer as the weights arrive: {T_TOK.toFixed(3)} ms a position</text>
           </g>
           <g in:fade={{ delay: 1200 }}>
             <text x="18" y="286" class="pt">·</text><text x="28" y="286" class="legend">each pass writes one token, because the next position needs the token before it (Ch. 1 Step 11)</text>
-            <text x="18" y="303" class="pt">·</text><text x="28" y="303" class="legend">a pass takes as long as its read; the math for 1 position or for 5 finishes inside it (Ch. 4 Step 5)</text>
+            <text x="18" y="303" class="pt">·</text><text x="28" y="303" class="legend">the two lanes run at once, and the pass ends when the read ends, whether 1 position or 5 (Ch. 4 Step 5)</text>
             <text x="18" y="320" class="pt">·</text><text x="28" y="320" class="legend">so if the next {N} tokens were known, {N} reads would become 1</text>
           </g>
-          <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">each math block is {T_TOK.toFixed(3)} ms, drawn about {MATH_X}× wider so it shows</text>
+          <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">the math is drawn about {MATH_X}× wider than scale so it shows</text>
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">batch 1 · the KV cache read is left out, small at this length (Ch. 4 Step 6)</text>
         </g>
       {/if}
@@ -153,15 +162,16 @@
 
           <!-- the speculative row, built on its timeline as the round runs -->
           <text x="16" y="152" class="boxtitle">speculative decoding</text>
+          {@render lanes(YB)}
           {#each Array(N) as _, k}
             {#if sp >= k + 1}
               <rect x={tx(k * T_GUESS)} y={YB} width={T_GUESS * PX_MS - 1.5} height={BAR_H} rx="2" fill={DRAFT_C} opacity="0.85" transition:fade={{ duration: 200 }} />
             {/if}
           {/each}
-          {#if sp >= 1}<text x={tx(0)} y={YB + BAR_H + 13} class="tag" style:fill={DRAFT_C} transition:fade={{ duration: 200 }}>draft</text>{/if}
           {#if sp >= 5}
-            <g class="grow" transition:fade={{ duration: 200 }}>{@render pass(DRAFT_END, YB, 5, 'verify · 5 positions')}</g>
+            <g transition:fade={{ duration: 150 }}>{@render pass(DRAFT_END, YB, 5, 'verify · 5 positions')}</g>
           {/if}
+          {#if sp >= 1}<text x={tx(DRAFT_END + T_READ) + 8} y={YB + 30} class="tag" style:fill={DRAFT_C} transition:fade={{ duration: 200 }}>amber: the draft, {N} small reads</text>{/if}
           {#if sp >= 7}
             <text x={tx(DRAFT_END + T_READ) + 8} y={YB + 15} class="tag strong" transition:fade={{ duration: 300 }}>{KEPT + 1} tokens · draft + {fmt1(T_READ)} ms</text>
           {/if}
@@ -172,16 +182,21 @@
             <text x="16" y={r.y + 14} class="tag strong" style:fill={r.c}>{r.n}</text>
             {#each Array(N) as _, k}
               {@const show = ri === 0 ? sp >= k + 1 : ri === 1 ? sp >= 6 : sp >= 7}
+              {@const gone = ri > 0 && k > KEPT}
               {@const t = ri === 0 ? DRAFT[k] : TARGET[k]}
               <rect x={CX + k * CW} y={r.y} width={CW - 16} height="20" rx="5" fill="none" stroke="var(--line)" stroke-dasharray="3 3" />
               {#if show}
                 <g transition:fade={{ duration: 250 }}>
-                  <rect x={CX + k * CW} y={r.y} width={CW - 16} height="20" rx="5"
-                    fill={ri === 0 ? 'var(--gen-soft)' : ri === 1 ? 'var(--accent-soft)' : k < KEPT ? '#dcfce7' : 'var(--accent-soft)'}
-                    stroke={ri === 0 ? DRAFT_C : ri === 1 ? TARGET_C : k < KEPT ? GREEN : TARGET_C} />
-                  <text x={CX + k * CW + (CW - 16) / 2} y={r.y + 14} text-anchor="middle" class="mono strong">{t.trim()}</text>
-                  {#if ri === 1}
-                    <text x={CX + k * CW + CW - 13} y={r.y + 14} class="tag strong" style:fill={k < KEPT ? GREEN : RED}>{k < KEPT ? '✓' : '✗'}</text>
+                  {#if gone}
+                    <text x={CX + k * CW + (CW - 16) / 2} y={r.y + 14} text-anchor="middle" class="tag" style:fill={RED}>{ri === 1 ? 'not used' : 'thrown away'}</text>
+                  {:else}
+                    <rect x={CX + k * CW} y={r.y} width={CW - 16} height="20" rx="5"
+                      fill={ri === 0 ? 'var(--gen-soft)' : ri === 1 ? 'var(--accent-soft)' : k < KEPT ? '#dcfce7' : 'var(--accent-soft)'}
+                      stroke={ri === 0 ? DRAFT_C : ri === 1 ? TARGET_C : k < KEPT ? GREEN : TARGET_C} />
+                    <text x={CX + k * CW + (CW - 16) / 2} y={r.y + 14} text-anchor="middle" class="mono strong">{t.trim()}</text>
+                    {#if ri === 1}
+                      <text x={CX + k * CW + CW - 13} y={r.y + 14} class="tag strong" style:fill={k < KEPT ? GREEN : RED}>{k < KEPT ? '✓' : '✗'}</text>
+                    {/if}
                   {/if}
                 </g>
               {/if}
@@ -189,13 +204,14 @@
           {/each}
           {#if sp >= 7}
             <g transition:fade={{ duration: 300 }}>
-              <text x={CX + N * CW + 4} y="306" class="tag">{KEPT} agreed, then the</text>
-              <text x={CX + N * CW + 4} y="319" class="tag">target's own at the miss</text>
+              <text x={CX + N * CW + 4} y="282" class="tag">{KEPT} agreed; at the first miss</text>
+              <text x={CX + N * CW + 4} y="295" class="tag">the target's own; the guess</text>
+              <text x={CX + N * CW + 4} y="308" class="tag">after it was built on "The"</text>
               <rect x="30" y="330" width="660" height="26" rx="13" fill="var(--accent-soft)" stroke="var(--accent)" />
-              <text x={W / 2} y="347" text-anchor="middle" class="need"><tspan class="strong">time per token</tspan> = (draft + verify) ÷ tokens kept per round</text>
+              <text x={W / 2} y="347" text-anchor="middle" class="need"><tspan class="strong">time per token</tspan> = (the draft's small reads + the target's one read) ÷ tokens kept</text>
             </g>
           {/if}
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">amber: the draft, at a nominal length (its cost is steps 4–6) · with sampling, an acceptance test keeps the target's distribution (prose)</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">the draft is drawn at a nominal length (its cost is steps 4–6) · with sampling, an acceptance test keeps the target's distribution</text>
           <LoopProgress ms={lapMs} {lap} />
         </g>
       {/if}
@@ -439,12 +455,16 @@
           <!-- ⑤ the target checks what is left, and adds its own -->
           <g in:fade={{ delay: 1300, duration: 250 }}>
             {@render num(C.tgt + 30, 80, 5)}
-            <text x={C.tgt + 30} y="102" text-anchor="middle" class="tag strong">the target</text>
-            {#each ['Paris', '.', 'It', 'is'] as t, j}
+            <text x={C.tgt + 30} y="102" text-anchor="middle" class="tag strong">the target checks 3</text>
+            {#each ['Paris', '.', 'It', ''] as t, j}
               <path d="M {C.conf + 136} {RY(j)} H {C.tgt - 4}" fill="none" stroke={j < KEEP ? '#b8b4aa' : 'var(--line)'} stroke-width="1.1" stroke-dasharray={j < KEEP ? 'none' : '3 3'} marker-end={j < KEEP ? 'url(#sd-arrow)' : undefined} />
-              <rect x={C.tgt} y={RY(j) - 10} width="60" height="20" rx="5" fill={j < KEEP ? '#dcfce7' : 'var(--accent-soft)'} stroke={j < KEEP ? GREEN : TARGET_C} />
-              <text x={C.tgt + 30} y={RY(j) + 4} text-anchor="middle" class="mono strong">{t}</text>
-              <text x={C.tgt + 66} y={RY(j) + 4} class="tag strong" style:fill={j < KEEP ? GREEN : TARGET_C}>{j < KEEP ? '✓' : 'its own'}</text>
+              {#if j < KEEP}
+                <rect x={C.tgt} y={RY(j) - 10} width="60" height="20" rx="5" fill={j < KEPT ? '#dcfce7' : 'var(--accent-soft)'} stroke={j < KEPT ? GREEN : TARGET_C} />
+                <text x={C.tgt + 30} y={RY(j) + 4} text-anchor="middle" class="mono strong">{t}</text>
+                <text x={C.tgt + 66} y={RY(j) + 4} class="tag strong" style:fill={j < KEPT ? GREEN : TARGET_C}>{j < KEPT ? '✓' : 'its own'}</text>
+              {:else}
+                <text x={C.tgt + 30} y={RY(j) + 4} text-anchor="middle" class="tag">not sent</text>
+              {/if}
             {/each}
           </g>
           <!-- why the link matters, in one example -->
@@ -505,8 +525,3 @@
   <StepControls {step} total={steps.length} caption={cur.caption} {prev} {next} onchange={(s) => (step = s)} />
 </figure>
 
-<style>
-  /* step 2: the verify pass grows left to right, as time passes */
-  .grow { transform-box: fill-box; transform-origin: left; animation: sd-grow 1.3s linear both; }
-  @keyframes sd-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-</style>
