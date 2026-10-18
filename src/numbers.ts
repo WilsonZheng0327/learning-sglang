@@ -21,7 +21,7 @@ export const BYTES = 2;              // bf16
 // k and v for one token, across the model: 128 KB (chapter 3)
 export const KB_PER_TOKEN = (LAYERS * KV_HEADS * HEAD_DIM * 2 * BYTES) / 1024;
 
-// the Omni running example (chapters 15–18): Qwen3-Omni as SGLang-Omni serves it
+// the Omni running example (chapters 16–21): Qwen3-Omni as SGLang-Omni serves it
 export const SPEECH_IN_HZ = 16000;     // audio samples a second the model reads
 export const SPEECH_OUT_HZ = 24000;    // audio samples a second the model writes
 export const VISION_PATCH = 16;        // pixels a side per patch

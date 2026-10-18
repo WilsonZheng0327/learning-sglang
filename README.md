@@ -37,6 +37,7 @@ The loop is correct; now the step is slow for reasons that have nothing to do wi
 | 12 | [Piecewise CUDA graphs](https://wilsonzheng0327.github.io/learning-sglang/ch/12-piecewise-cuda-graph/) | When the graph has to break. | live |
 | 13 | [torch.compile](https://wilsonzheng0327.github.io/learning-sglang/ch/13-torch-compile/) | Fusing the kernels you were about to launch. | live |
 | 14 | [Attention backends](https://wilsonzheng0327.github.io/learning-sglang/ch/14-attention-backends/) | Why there are five kernels for one equation. | live |
+| 15 | [Speculative decoding](https://wilsonzheng0327.github.io/learning-sglang/ch/15-speculative-decoding/) | Guess several tokens, verify in one step. | live |
 
 ### Beyond text · SGLang Omni
 
@@ -44,12 +45,12 @@ Speech and vision break the assumptions of Part I, one at a time.
 
 | # | Chapter | Hook | Status |
 |---|---|---|---|
-| 15 | [Omni models](https://wilsonzheng0327.github.io/learning-sglang/ch/15-omni-models/) | Pixels and speech in, speech out. | live |
-| 16 | [Stages and schedulers](https://wilsonzheng0327.github.io/learning-sglang/ch/16-stages-and-schedulers/) | Seven stages, three kinds of scheduler. | live |
-| 17 | [Between stages](https://wilsonzheng0327.github.io/learning-sglang/ch/17-between-stages/) | Eight edges, four ways to cross them. | live |
-| 18 | Sharing GPUs | Several models, one card. | planned |
-| 19 | Streaming audio decode | Output with a real-time deadline. | planned |
-| 20 | Full duplex | Listening while speaking. | planned |
+| 16 | [Omni models](https://wilsonzheng0327.github.io/learning-sglang/ch/16-omni-models/) | Pixels and speech in, speech out. | live |
+| 17 | [Stages and schedulers](https://wilsonzheng0327.github.io/learning-sglang/ch/17-stages-and-schedulers/) | Seven stages, three kinds of scheduler. | live |
+| 18 | [Between stages](https://wilsonzheng0327.github.io/learning-sglang/ch/18-between-stages/) | Eight edges, four ways to cross them. | live |
+| 19 | Sharing GPUs | Several models, one card. | planned |
+| 20 | Streaming audio decode | Output with a real-time deadline. | planned |
+| 21 | Full duplex | Listening while speaking. | planned |
 
 ### More from one GPU
 
@@ -57,7 +58,6 @@ The step is now mostly the weight read: get more tokens out of it, or make it sm
 
 | # | Chapter | Hook | Status |
 |---|---|---|---|
-| 21 | [Speculative decoding](https://wilsonzheng0327.github.io/learning-sglang/ch/21-speculative-decoding/) | Guess several tokens, verify in one step. | live |
 | 22 | Quantization | Shrinking the read every step pays for. | planned |
 | 23 | Two-batch overlap | Hiding communication behind compute. | planned |
 

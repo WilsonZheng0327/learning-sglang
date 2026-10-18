@@ -1,16 +1,16 @@
 ---
 layout: ../../layouts/Chapter.astro
-slug: 15-omni-models
+slug: 16-omni-models
 ---
 import OmniModels from '../../components/viz/OmniModels.svelte';
 import { neighbors } from '../../chapters';
 
-<OmniModels client:load {...neighbors('15-omni-models')} />
+<OmniModels client:load {...neighbors('16-omni-models')} />
 
 <details>
 <summary>The running example, and where its numbers come from</summary>
 
-**Qwen3-Omni.** Chapters 15 to 20 follow one model, [Qwen3-Omni](https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct), as [SGLang-Omni](https://github.com/sgl-project/sglang-omni) serves it. It reads text, images, audio and video, and answers in text or in speech.
+**Qwen3-Omni.** Chapters 16 to 21 follow one model, [Qwen3-Omni](https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct), as [SGLang-Omni](https://github.com/sgl-project/sglang-omni) serves it. It reads text, images, audio and video, and answers in text or in speech.
 
 **A sample.** Sound is stored as the height of the wave, read at a fixed rate. Qwen3-Omni reads speech at 16,000 samples a second and writes it at 24,000, the rates SGLang-Omni's server takes and returns.
 

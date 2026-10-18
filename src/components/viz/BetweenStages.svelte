@@ -7,10 +7,10 @@
   import { BYTES, OMNI_HIDDEN, VISION_PATCH, VISION_MERGE, AUDIO_FRAMES_PER_SEC, AUDIO_POS_PER_100, CODES_PER_FRAME, SPEECH_OUT_HZ, SAMPLES_PER_FRAME } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
-  const CH_PROC = chNum('09-one-request'), CH_OMNI = chNum('15-omni-models'), CH_STAGES = chNum('16-stages-and-schedulers');
-  const CH_GPUS = chNum('18-sharing-gpus'), CH_DISAGG = chNum('28-disaggregation');
+  const CH_PROC = chNum('09-one-request'), CH_OMNI = chNum('16-omni-models'), CH_STAGES = chNum('17-stages-and-schedulers');
+  const CH_GPUS = chNum('19-sharing-gpus'), CH_DISAGG = chNum('28-disaggregation');
 
-  // chapter 15's request, in the units that cross the edges
+  // chapter 16's request, in the units that cross the edges
   const PHOTO = 896, Q_SEC = 10, CHUNK = 10;
   const fmt = (n: number) => n.toLocaleString('en-US');
   const IMG_POS = (PHOTO / (VISION_PATCH * VISION_MERGE)) ** 2;          // 784
@@ -63,7 +63,7 @@
   const NOMODEL = '#ece9e1';
   const IPC = 'var(--accent)', SHM = 'var(--gen)';
 
-  // chapter 16's graph, compact: the seven stages and edges 1–8
+  // chapter 17's graph, compact: the seven stages and edges 1–8
   const G = {
     pre: { x: 16, y: 104, n: 'preprocessing', d: 'CPU', f: NOMODEL, s: 'var(--faint)' },
     img: { x: 162, y: 60, n: 'image_encoder', d: 'GPU 0', f: 'white', s: 'var(--fg)' },
@@ -97,7 +97,7 @@
         {/each}
       </defs>
 
-      <!-- chapter 16's graph, compact; each edge coloured by colourOf and badged with its number -->
+      <!-- chapter 17's graph, compact; each edge coloured by colourOf and badged with its number -->
       {#snippet graph(colourOf: (t: 'shm' | 'ipc') => string, markerOf: (t: 'shm' | 'ipc') => string)}
         {#each EDGES as e, i}
           {@const [mx, my] = mid(e.a, e.b)}
@@ -175,7 +175,7 @@
         <g transition:fade={{ duration: 250 }}>
           <text x="16" y="42" class="rowlabel">one hand-off, edge 7 · thinker to talker_ar, one token's vector</text>
 
-          <!-- the two stages, as Ch. 16 Step 2 drew them -->
+          <!-- the two stages, as Ch. 17 Step 2 drew them -->
           {#each [{ x: SX, n: 'thinker · GPU 0', q: 'outbox' }, { x: RX, n: 'talker_ar · GPU 1', q: 'inbox' }] as st, k}
             <rect x={st.x} y="60" width={SW} height="252" rx="12" fill="#fbfaf7" stroke="var(--fg)" />
             <text x={st.x + 12} y="77" class="boxtitle">{st.n}</text>

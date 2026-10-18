@@ -112,7 +112,7 @@
         </marker>
       </defs>
 
-      <!-- 1: the request, next to the text request chapters 1–14 served: the same engine, a converter needed on each side -->
+      <!-- 1: the request, next to the text request chapters 1–15 served: the same engine, a converter needed on each side -->
       {#if cur.scene === 'request'}
         {@const TK = 238}
         {@const TKW = 68}
@@ -125,8 +125,8 @@
         {@const YA = 110}
         {@const YB = 270}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="42" class="rowlabel">one omni request, next to the text request chapters 1–14 served</text>
-          <text x="30" y="80" class="boxtitle">text · chapters 1–14</text>
+          <text x="16" y="42" class="rowlabel">one omni request, next to the text request chapters 1–15 served</text>
+          <text x="30" y="80" class="boxtitle">text · chapters 1–15</text>
           <text x="30" y="222" class="boxtitle">omni · this part</text>
 
           <!-- the engine, one for both -->
@@ -297,7 +297,7 @@
             <text x={BX + 56} y="69" text-anchor="middle" class="tag strong">detokenizer</text>
             <text x={BX + 56} y="82" text-anchor="middle" class="tag">a table, on the CPU</text>
             <path d="M {BX + 116} 72 H {BX + 140}" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#om-arrow)" />
-            <text x={BX + 146} y="76" class="tag">the answer as text, as in chapters 1–14</text>
+            <text x={BX + 146} y="76" class="tag">the answer as text, as in chapters 1–15</text>
 
             <rect x={SB} y="100" width={704 - SB} height="256" rx="10" fill="none" stroke="var(--faint)" stroke-dasharray="4 3" />
             <text x={SB + 12} y="115" class="tag strong">speech · beside the detokenizer, three more models, on the GPU</text>
@@ -452,7 +452,7 @@
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">counts for this request: the {PHOTO} × {PHOTO} photo, the {Q_SEC} s question and the {A_SEC} s answer (steps 2 and 3)</text>
         </g>
       {/if}
-      <!-- 5: inside the talker box · the engine's row as in chapters 1–14, the talker's row reading what it writes -->
+      <!-- 5: inside the talker box · the engine's row as in chapters 1–15, the talker's row reading what it writes -->
       {#if cur.scene === 'waits'}
         {@const C0 = 150}
         {@const CW = 34}
@@ -470,7 +470,7 @@
           <g in:fade={{ delay: 100, duration: 250 }}>
             <text x="16" y={EY + 12} class="tag strong">engine</text>
             <text x="16" y={EY + 25} class="tag">a request as in</text>
-            <text x="16" y={EY + 37} class="tag">chapters 1–14</text>
+            <text x="16" y={EY + 37} class="tag">chapters 1–15</text>
             <text x="16" y={TY + 12} class="tag strong">talker</text>
             <text x="16" y={TY + 25} class="tag">reads what the</text>
             <text x="16" y={TY + 37} class="tag">engine writes</text>

@@ -26,15 +26,15 @@ export const chapters: Chapter[] = [
   { part: 'fast', slug: '12-piecewise-cuda-graph', title: 'Piecewise CUDA graphs', hook: 'When the graph has to break.', ready: true },
   { part: 'fast', slug: '13-torch-compile', title: 'torch.compile', hook: 'Fusing the kernels you were about to launch.', ready: true },
   { part: 'fast', slug: '14-attention-backends', title: 'Attention backends', hook: 'Why there are five kernels for one equation.', ready: true },
+  { part: 'fast', slug: '15-speculative-decoding', title: 'Speculative decoding', hook: 'Guess several tokens, verify in one step.', ready: true },
 
-  { part: 'omni', slug: '15-omni-models', title: 'Omni models', hook: 'Pixels and speech in, speech out.', ready: true },
-  { part: 'omni', slug: '16-stages-and-schedulers', title: 'Stages and schedulers', hook: 'Seven stages, three kinds of scheduler.', ready: true },
-  { part: 'omni', slug: '17-between-stages', title: 'Between stages', hook: 'Eight edges, four ways to cross them.', ready: true },
-  { part: 'omni', slug: '18-sharing-gpus', title: 'Sharing GPUs', hook: 'Several models, one card.', ready: false },
-  { part: 'omni', slug: '19-streaming-audio', title: 'Streaming audio decode', hook: 'Output with a real-time deadline.', ready: false },
-  { part: 'omni', slug: '20-full-duplex', title: 'Full duplex', hook: 'Listening while speaking.', ready: false },
+  { part: 'omni', slug: '16-omni-models', title: 'Omni models', hook: 'Pixels and speech in, speech out.', ready: true },
+  { part: 'omni', slug: '17-stages-and-schedulers', title: 'Stages and schedulers', hook: 'Seven stages, three kinds of scheduler.', ready: true },
+  { part: 'omni', slug: '18-between-stages', title: 'Between stages', hook: 'Eight edges, four ways to cross them.', ready: true },
+  { part: 'omni', slug: '19-sharing-gpus', title: 'Sharing GPUs', hook: 'Several models, one card.', ready: false },
+  { part: 'omni', slug: '20-streaming-audio', title: 'Streaming audio decode', hook: 'Output with a real-time deadline.', ready: false },
+  { part: 'omni', slug: '21-full-duplex', title: 'Full duplex', hook: 'Listening while speaking.', ready: false },
 
-  { part: 'faster', slug: '21-speculative-decoding', title: 'Speculative decoding', hook: 'Guess several tokens, verify in one step.', ready: true },
   { part: 'faster', slug: '22-quantization', title: 'Quantization', hook: 'Shrinking the read every step pays for.', ready: false },
   { part: 'faster', slug: '23-two-batch-overlap', title: 'Two-batch overlap', hook: 'Hiding communication behind compute.', ready: false },
 

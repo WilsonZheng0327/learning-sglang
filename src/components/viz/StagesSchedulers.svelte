@@ -7,9 +7,9 @@
   import { SPEECH_OUT_HZ, CODES_PER_FRAME, SAMPLES_PER_FRAME } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
-  const CH_ENGINE = chNum('10-engine'), CH_PROC = chNum('09-one-request'), CH_OMNI = chNum('15-omni-models'), CH_EDGES = chNum('17-between-stages');
-  const CH_PLACE = chNum('18-sharing-gpus'), CH_TP = chNum('24-tensor-parallel');
-  // chapter 15's 20 s spoken answer, in frames
+  const CH_ENGINE = chNum('10-engine'), CH_PROC = chNum('09-one-request'), CH_OMNI = chNum('16-omni-models'), CH_EDGES = chNum('18-between-stages');
+  const CH_PLACE = chNum('19-sharing-gpus'), CH_TP = chNum('24-tensor-parallel');
+  // chapter 16's 20 s spoken answer, in frames
   const A_SEC = 20;
   const FRAMES = (A_SEC * SPEECH_OUT_HZ) / SAMPLES_PER_FRAME;   // 250
   const FRAME_MS = (SAMPLES_PER_FRAME / SPEECH_OUT_HZ) * 1000;  // 80
@@ -80,7 +80,7 @@
   const W = 720, H = 400;
   const RED = 'var(--eos)';
 
-  // chapter 15's six models, in its map's two kinds: one pass (white) and a loop (blue)
+  // chapter 16's six models, in its map's two kinds: one pass (white) and a loop (blue)
   const MODELS = [
     { n: 'vision encoder', loop: false, home: true },
     { n: 'audio encoder', loop: false, home: true },
@@ -109,7 +109,7 @@
         </marker>
       </defs>
 
-      <!-- 1: SGLang's three processes from chapter 9, and chapter 15's six models: three have a home, three have none -->
+      <!-- 1: SGLang's three processes from chapter 9, and chapter 16's six models: three have a home, three have none -->
       {#if cur.scene === 'gap'}
         {@const PW = 160}
         {@const PX = [30, 280, 530]}
@@ -134,7 +134,7 @@
             {/each}
           </g>
 
-          <!-- chapter 15's models: the encoders and the engine run in the scheduler process; the speech models have no process -->
+          <!-- chapter 16's models: the encoders and the engine run in the scheduler process; the speech models have no process -->
           <g in:fade={{ delay: 500, duration: 250 }}>
             <text x="704" y={MY - 14} text-anchor="end" class="boxtitle">Qwen3-Omni's six models · Ch. {CH_OMNI} Step 4</text>
             {#each MODELS as m, i}
@@ -364,7 +364,7 @@
             <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">each box: the stage, its scheduler (steps 7–11), and where it runs · dashed: a process · both GPUs in one machine</text>
             <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">not drawn: three more edges carry the same inputs to talker_ar, which builds its own prompt (Ch. {CH_EDGES} Step 1)</text>
           {:else}
-          <!-- the count: chapter 15's six models, one stage they share, two stages with none -->
+          <!-- the count: chapter 16's six models, one stage they share, two stages with none -->
           <g in:fade={{ delay: 1000, duration: 250 }}>
             <text x="18" y="304" class="pt">·</text><text x="28" y="304" class="legend"><tspan class="strong">7 stages</tspan> = Ch. {CH_OMNI} Step 4's 6 models, − 1 because the talker and code predictor share one, + 2 that run no model</text>
             <text x="18" y="321" class="pt">·</text><text x="28" y="321" class="legend">preprocessing turns the request into tokens, photo patches and audio frames; decode is the detokenizer</text>
