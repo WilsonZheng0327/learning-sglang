@@ -19,7 +19,7 @@ Read it to check wording and numbers across chapters without opening the compone
 | 11 | [CUDA graphs](11-cuda-graphs.md) | 14 |
 | 12 | [Piecewise CUDA graphs](12-piecewise-cuda-graph.md) | 12 |
 | 13 | [torch.compile](13-torch-compile.md) | 11 |
-| 14 | [Attention backends](14-attention-backends.md) | 12 |
+| 14 | [Attention backends](14-attention-backends.md) | 13 |
 | 15 | [Speculative decoding](15-speculative-decoding.md) | 8 |
 | 16 | [Omni models](16-omni-models.md) | 6 |
 | 17 | [Stages and schedulers](17-stages-and-schedulers.md) | 12 |
