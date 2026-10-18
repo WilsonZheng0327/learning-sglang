@@ -54,7 +54,7 @@ Speech and vision break the assumptions of Part I, one at a time.
 
 ### More from one GPU
 
-The step is now mostly the weight read: get more tokens out of it, or make it smaller.
+Every pass still reads all of the weights: make that read smaller, and keep the GPU busy while it waits.
 
 | # | Chapter | Hook | Status |
 |---|---|---|---|

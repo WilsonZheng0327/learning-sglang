@@ -5,7 +5,7 @@ export const parts: Part[] = [
   { id: 'loop', title: 'The loop', blurb: 'Why every piece of the engine exists.' },
   { id: 'fast', title: 'Making one GPU fast', blurb: 'The loop is correct; now the step is slow for reasons that have nothing to do with the model.' },
   { id: 'omni', title: 'Beyond text · SGLang Omni', blurb: 'Speech and vision break the assumptions of Part I, one at a time.' },
-  { id: 'faster', title: 'More from one GPU', blurb: 'The step is now mostly the weight read: get more tokens out of it, or make it smaller.' },
+  { id: 'faster', title: 'More from one GPU', blurb: 'Every pass still reads all of the weights: make that read smaller, and keep the GPU busy while it waits.' },
   { id: 'scale', title: 'More than one GPU', blurb: 'The model, the cache, or the traffic no longer fits on one card.' },
 ];
 

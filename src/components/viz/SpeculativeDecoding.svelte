@@ -3,11 +3,10 @@
   import { fade } from 'svelte/transition';
   import StepControls from '../StepControls.svelte';
   import LoopProgress from '../LoopProgress.svelte';
-  import { chapterNumber as chNum, type NavLink } from '../../chapters';
+  import type { NavLink } from '../../chapters';
   import { W_GB, BW, GFLOP_PER_TOKEN, TFLOPS, LAYERS, D_MODEL, D_FF, BYTES } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
-  const CH_QUANT = chNum('22-quantization');
 
   // ---- one request decoding alone, Llama-3-8B on one H100 (Ch. 4 Steps 3 and 5) ----
   const T_READ = (W_GB / (BW * 1000)) * 1000;          // 4.8 ms: the weight read
@@ -563,7 +562,7 @@
             <text x="18" y="327" class="pt">·</text><text x="28" y="327" class="legend">the draft's own time comes off that; chat is harder to guess than math or code for all three</text>
           </g>
           <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">source: Cheng et al., DSpark, arXiv 2607.05147, Table 1 · all three retrained on the same data, 7 guesses a round, temperature 1</text>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">a round's count includes the target's own token · making each pass's 16 GB read smaller: chapter {CH_QUANT}</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">a round's count includes the target's own token</text>
         </g>
       {/if}
 

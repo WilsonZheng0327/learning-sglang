@@ -79,7 +79,7 @@
     hardware: `Each GPU generation adds units a kernel must be written to use. On one H100, ${nb('FlashAttention-2')} (written for the A100) reaches 35% of peak and ${nb('FlashAttention-3')} (written for the H100) 75%. So each generation gets its own kernels.`,
     interface: `Many kernels, one model. The model calls one interface, and every backend fills the same slots: the plan (step ${at('pages')}), a prefill and a decode kernel (steps ${at('shapes')}–${at('split')}), and graph buffers. Which backend fills them is step ${at('backends')}.`,
     backends: `Each backend covers some head layouts, page sizes and GPUs. SGLang picks by GPU and model: fa3 on Hopper, trtllm_mha on Blackwell, aiter on AMD, flashinfer on other NVIDIA, triton when nothing else fits.`,
-    closing: `One request decoding alone reads ${fmtMs(tMem)} of weights for every token. Its next five tokens in one pass, as prefill does with a prompt, would take ${fmtMs(tMem + tLayer(KV_HEADS * SPLITS) * LAYERS + 5 * 0.016)}, not ${fmtMs(5 * (tMem + tLayer(KV_HEADS * SPLITS) * LAYERS + 0.016))}. But each one's input is the token before it.`,
+    closing: `Decoding alone, every token costs a 16 GB weight read, because each pass's input is the token before it. One pass could take 5 positions, as prefill does. Where would the other 4 come from?`,
   };
   const steps = ORDER.map((scene) => ({ scene, caption: captions[scene] }));
 
@@ -832,43 +832,57 @@
         </g>
       {/if}
 
-      <!-- 13: closing · one request decoding alone: its next token, or its next 5 consecutive positions in one pass, cost about the same -->
+      <!-- 13: closing · decode as a chain of passes, each waiting on the token before; one pass could take 5 positions if they were known -->
       {#if cur.scene === 'closing'}
-        {@const BX = 190}
-        {@const BW2 = 400}
-        {@const FIVE = 5}
-        {@const attn = tLayer(KV_HEADS * SPLITS) * LAYERS}
-        {@const mathMs = 0.016}
-        {@const one = tMem + attn + mathMs}
-        {@const five = tMem + attn + FIVE * mathMs}
-        {@const perMs = BW2 / five}
+        {@const OUT = ['Paris', '.', 'It', 'is']}
+        {@const CW = 44}
+        {@const BW3 = 72}
+        {@const G = 12}
+        {@const U = CW + G + BW3 + G}
+        {@const X0 = 24}
+        {@const cx = (k: number) => X0 + k * U}
+        {@const AY = 92}
+        {@const BY = 204}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="42" class="rowlabel">one request decoding alone (batch 1) · {fmtK(CTX_DEC)} tokens of context · attention split as in step {at('split')}</text>
-          {#each [{ y: 78, t: 'next token', s: 'one position, as decode does', n: 1 }, { y: 146, t: `next ${FIVE} tokens`, s: `${FIVE} consecutive positions, one step`, n: FIVE }] as r, i}
-            {@const tot = tMem + attn + r.n * mathMs}
-            {@const mw = Math.max(3, r.n * mathMs * perMs)}
-            <g in:fade={{ delay: 200 + i * 700, duration: 250 }}>
-              <text x={BX - 12} y={r.y + 17} text-anchor="end" class="slab strong small">{r.t}</text>
-              <text x={BX - 12} y={r.y + 31} text-anchor="end" class="tag">{r.s}</text>
-              <rect x={BX} y={r.y} width={tMem * perMs} height="28" rx="4" fill="var(--gen)" opacity="0.85" />
-              <rect x={BX + tMem * perMs} y={r.y} width={attn * perMs} height="28" rx="4" fill={RED} opacity="0.85" />
-              <rect x={BX + (tMem + attn) * perMs + 1} y={r.y} width={mw} height="28" rx={Math.min(3, mw / 2)} fill={GREEN} />
-              <text x={BX + tot * perMs + 10} y={r.y + 13} class="tag strong">{fmtMs(tot)}</text>
-              <text x={BX + tot * perMs + 10} y={r.y + 26} class="tag">{fmtMs(tot / r.n)} per token</text>
-              <text x={BX} y={r.y + 44} class="tag"><tspan fill="var(--gen)">weights {fmtMs(tMem)}</tspan> · <tspan fill={RED}>attention {fmtMs(attn)}</tspan> · <tspan fill={GREEN}>math {r.n > 1 ? `${r.n} × ${mathMs} = ${(r.n * mathMs).toFixed(2)}` : mathMs} ms</tspan></text>
-            </g>
-          {/each}
-          <g in:fade={{ delay: 1500 }}>
-            <text x="18" y="232" class="pt">·</text><text x="28" y="232" class="legend">one pass can compute consecutive positions, as prefill does for a prompt (Ch. 4 Step 3): the weights are read once for all {FIVE}</text>
-            <text x="18" y="250" class="pt">·</text><text x="28" y="250" class="legend">the {FIVE} positions read the same cache: {FIVE} × {GROUP} = {FIVE * GROUP} uses per K/V byte, far below ~{BAL}, so attention stays {fmtMs(attn)} (step {at('shapes')})</text>
-            <text x="18" y="268" class="pt">·</text><text x="28" y="268" class="legend">only the math grows, {mathMs} ms per position</text>
+          <text x="16" y="42" class="rowlabel">one request decoding alone · after chapters 11–14, a pass is still one read of all {W_GB} GB</text>
+
+          <!-- decode: a chain, each pass fed the token the pass before wrote -->
+          <g in:fade={{ delay: 100, duration: 250 }}>
+            <text x="16" y="70" class="boxtitle">decode · one pass per token</text>
+            {#each Array(OUT.length + 1) as _, k}
+              <rect x={cx(k)} y={AY} width={CW} height="22" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" />
+              <text x={cx(k) + CW / 2} y={AY + 15} text-anchor="middle" class="mono strong">{k ? OUT[k - 1] : 'is'}</text>
+              {#if k < OUT.length}
+                <path d="M {cx(k) + CW + 2} {AY + 11} H {cx(k) + CW + G - 3}" fill="none" stroke="#b8b4aa" stroke-width="1.4" marker-end="url(#ab-arrow)" />
+                <rect x={cx(k) + CW + G} y={AY - 3} width={BW3} height="28" rx="4" fill="#5b5b5b" />
+                <text x={cx(k) + CW + G + BW3 / 2} y={AY + 15} text-anchor="middle" class="tag onbox">reads {W_GB} GB</text>
+                <path d="M {cx(k) + CW + G + BW3 + 2} {AY + 11} H {cx(k + 1) - 3}" fill="none" stroke="#b8b4aa" stroke-width="1.4" marker-end="url(#ab-arrow)" />
+                <text x={cx(k) + CW + G + BW3 / 2} y={AY + 40} text-anchor="middle" class="tag">pass {k + 1}</text>
+              {/if}
+            {/each}
+            <text x={cx(OUT.length) + CW + 10} y={AY + 15} class="tag strong">{OUT.length} reads</text>
           </g>
-          <g in:fade={{ delay: 2300 }}>
-            <text x={W / 2} y="310" text-anchor="middle" class="focus">The next {FIVE} tokens in one step would take {fmtMs(five)}, not {FIVE} × {fmtMs(one)} = {fmtMs(FIVE * one)}.</text>
-            <text x={W / 2} y="332" text-anchor="middle" class="legend">But each position's input is the token before it, and decode has only the last one.</text>
-            <text x={W / 2} y="350" text-anchor="middle" class="legend">Where would the other {FIVE - 1} inputs come from?</text>
+
+          <!-- one pass over 5 positions: the first input known, the other 4 not yet written -->
+          <g in:fade={{ delay: 700, duration: 250 }}>
+            {#each Array(OUT.length + 1) as _, k}
+              {#if k}
+                <path d="M {cx(k) + CW / 2} {AY + 26} V {AY + 76} M {cx(k) + CW / 2} {AY + 98} V {BY - 6}" fill="none" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 3" />
+              {/if}
+              <rect x={cx(k)} y={BY} width={CW} height="22" rx="5" fill={k ? 'var(--eos-soft)' : 'var(--accent-soft)'} stroke={k ? RED : 'var(--accent)'} stroke-dasharray={k ? '3 2' : 'none'} />
+              <text x={cx(k) + CW / 2} y={BY + 15} text-anchor="middle" class="mono strong" style:fill={k ? RED : null}>{k ? '?' : 'is'}</text>
+              <path d="M {cx(k) + CW / 2} {BY + 25} V {BY + 33}" fill="none" stroke="#b8b4aa" stroke-width="1.4" marker-end="url(#ab-arrow)" />
+            {/each}
+            <rect x={cx(0)} y={BY + 37} width={cx(OUT.length) + CW - cx(0)} height="28" rx="4" fill="#5b5b5b" />
+            <text x={(cx(0) + cx(OUT.length) + CW) / 2} y={BY + 55} text-anchor="middle" class="tag onbox">one pass over 5 positions · reads {W_GB} GB once</text>
+            <text x={cx(OUT.length) + CW + 10} y={BY + 55} class="tag strong">1 read</text>
+            <text x="16" y={AY + 91} class="boxtitle">one pass over 5 positions · as prefill does with a prompt (Ch. 4 Step 3)</text>
           </g>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">math per position: 16 GFLOP ÷ {TFLOPS} TFLOP/s = {mathMs} ms (Ch. 4 Step 5) · the new positions' own k and v writes are too small to draw</text>
+
+          <g in:fade={{ delay: 1300 }}>
+            <text x={W / 2} y="306" text-anchor="middle" class="legend">each ? is a token the chain above writes one pass at a time, so it is not known yet</text>
+          </g>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">batch 1 · a pass is the 16 GB weight read, {fmtMs(tMem)} (Ch. 4 Step 5), plus a little for attention and the math</text>
         </g>
       {/if}
 
