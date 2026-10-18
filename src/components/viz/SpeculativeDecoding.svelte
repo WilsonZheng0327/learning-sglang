@@ -483,7 +483,7 @@
               <rect x={C.g} y={RY(j) - 10} width="60" height="20" rx="5" fill="var(--gen-soft)" stroke={DRAFT_C} />
               <text x={C.g + 30} y={RY(j) + 4} text-anchor="middle" class="mono strong">{t.trim()}</text>
               {#if j < N - 1}
-                <path d="M {C.g + 63} {RY(j) + 5} A 15 15 0 0 1 {C.g + 64} {RY(j + 1) - 5}" fill="none" stroke={GREEN} stroke-width="1.6" marker-end="url(#sd-arrow-grn)" />
+                <path d="M {C.g + 64} {RY(j) + 5} A 15 15 0 0 1 {C.g + 69.5} {RY(j) + 20.9} L {C.g + 64} {RY(j + 1) - 5}" fill="none" stroke={GREEN} stroke-width="1.6" marker-end="url(#sd-arrow-grn)" />
               {/if}
             {/each}
             <text x={C.g + 92} y={(RY(0) + RY(N - 1)) / 2 + 4} class="tag" style:fill={GREEN}>small head</text>
