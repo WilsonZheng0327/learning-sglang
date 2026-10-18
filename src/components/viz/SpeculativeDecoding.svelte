@@ -251,9 +251,10 @@
           {/each}
           {#if sp >= 7}
             <g transition:fade={{ duration: 300 }}>
-              <text x={CX + N * CW + 4} y="282" class="tag">{KEPT} agreed; at the first miss</text>
-              <text x={CX + N * CW + 4} y="295" class="tag">the target's own; the guess</text>
-              <text x={CX + N * CW + 4} y="308" class="tag">after it was built on "The"</text>
+              {#each ['"Paris" and "." match: kept', '"The" is wrong: "It" replaces it', '"city" came after "The": dropped'] as line, li}
+                <text x={CX + N * CW + 2} y={282 + li * 15} class="pt">·</text>
+                <text x={CX + N * CW + 12} y={282 + li * 15} class="tag">{line}</text>
+              {/each}
               <rect x="30" y="330" width="660" height="26" rx="13" fill="var(--accent-soft)" stroke="var(--accent)" />
               <text x={W / 2} y="347" text-anchor="middle" class="need"><tspan class="strong">time per token</tspan> = (the draft's small reads + the target's one read) ÷ tokens kept</text>
             </g>
@@ -482,7 +483,7 @@
               <rect x={C.g} y={RY(j) - 10} width="60" height="20" rx="5" fill="var(--gen-soft)" stroke={DRAFT_C} />
               <text x={C.g + 30} y={RY(j) + 4} text-anchor="middle" class="mono strong">{t.trim()}</text>
               {#if j < N - 1}
-                <path d="M {C.g + 62} {RY(j) + 2} C {C.g + 86} {RY(j) + 2}, {C.g + 86} {RY(j + 1)}, {C.g + 76} {RY(j + 1)} L {C.g + 64} {RY(j + 1)}" fill="none" stroke={GREEN} stroke-width="1.6" marker-end="url(#sd-arrow-grn)" />
+                <path d="M {C.g + 64} {RY(j)} A {(RY(j + 1) - RY(j)) / 2} {(RY(j + 1) - RY(j)) / 2} 0 0 1 {C.g + 64} {RY(j + 1)}" fill="none" stroke={GREEN} stroke-width="1.6" marker-end="url(#sd-arrow-grn)" />
               {/if}
             {/each}
             <text x={C.g + 92} y={(RY(0) + RY(N - 1)) / 2 + 4} class="tag" style:fill={GREEN}>small head</text>
