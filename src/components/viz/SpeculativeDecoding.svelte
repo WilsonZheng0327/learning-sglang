@@ -4,7 +4,7 @@
   import StepControls from '../StepControls.svelte';
   import LoopProgress from '../LoopProgress.svelte';
   import { chapterNumber as chNum, type NavLink } from '../../chapters';
-  import { W_GB, BW, GFLOP_PER_TOKEN, TFLOPS, LAYERS } from '../../numbers';
+  import { W_GB, BW, GFLOP_PER_TOKEN, TFLOPS, LAYERS, D_MODEL, D_FF, BYTES } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   const CH_QUANT = chNum('22-quantization');
@@ -32,7 +32,7 @@
 
   type Scene = 'pass' | 'before' | 'after' | 'map' | 'eagle' | 'dflash' | 'dspark' | 'compare';
   const steps: { scene: Scene; caption: string }[] = [
-    { scene: 'pass', caption: `A pass reads the weights one layer at a time, and each layer's math runs as soon as its weights arrive, while the next layer is read. With 5 positions each burst of math is 5 times longer and still ends before the next layer arrives.` },
+    { scene: 'pass', caption: `A position is one token the pass works on, one row of numbers. Each layer's weights arrive once and every row is multiplied by them while the next layer is read, so 5 rows make the math longer but not the pass.` },
     { scene: 'before', caption: `Normal decoding writes one token per pass, and each pass reads all ${W_GB} GB of weights in ${fmt1(T_READ)} ms. Five positions in one pass do 5 times the math, and the math still finishes inside that one read.` },
     { scene: 'after', caption: `So guess the next tokens. A draft model proposes ${N}, and the target checks them in one pass. It keeps the ones it agrees with, puts its own token at the first miss, and drops the rest, here ${KEPT + 1} tokens.` },
     { scene: 'map', caption: `The three drafters differ in how they make the ${N} guesses. EAGLE makes them one pass at a time, DFlash all in one pass, and DSpark in one pass plus a short chain that links each guess to the one before.` },
@@ -121,11 +121,14 @@
       <!-- 1: inside one pass · each layer's weights arrive, its math runs while the next layer is read; 1 position against 5 -->
       {#if cur.scene === 'pass'}
         {@const LX0 = 92}
-        {@const LN = 8}
-        {@const LCW = 74}
+        {@const LN = 6}
+        {@const LCW = 66}
         {@const BW1 = 5}
         {@const lx = (k: number) => LX0 + k * LCW}
-        {@const panels = [{ y: 78, n: 1, t: '1 position · normal decoding' }, { y: 178, n: 5, t: '5 positions in one pass' }]}
+        {@const panels = [{ y: 78, n: 1, t: '1 position · normal decoding, the newest token' }, { y: 182, n: 5, t: '5 positions · 5 tokens in one pass, as prefill does' }]}
+        {@const MX = 536}
+        {@const W_MB = Math.round((D_MODEL * D_FF * BYTES) / 1e6)}
+        {@const fmtN = (n: number) => n.toLocaleString('en-US')}
         {@const ENL = Math.round(BW1 / ((T_TOK / LAYERS) * (LCW / (T_READ / LAYERS))))}
         <g transition:fade={{ duration: 250 }}>
           <text x="16" y="42" class="rowlabel">inside one pass · the weights arrive a layer at a time · the first {LN} of {LAYERS} layers</text>
@@ -140,18 +143,27 @@
                 <rect x={lx(k) + LCW - 2} y={p.y + 40} width={BW1 * p.n} height="18" rx="2" fill={TARGET_C} />
               {/each}
               <rect x={lx(0)} y={p.y + 40} width={LN * LCW + BW1 * p.n} height="18" rx="3" fill="none" stroke="var(--line)" />
+              <!-- one layer's math: the positions' rows times a weight matrix -->
+              {#each Array(p.n) as _, r}
+                <rect x={MX} y={p.y + 8 + r * 8} width="34" height="7" rx="1.5" fill="var(--accent-soft)" stroke={TARGET_C} stroke-width="0.8" />
+              {/each}
+              <text x={MX + 44} y={p.y + 27} text-anchor="middle" class="tag strong">×</text>
+              <rect x={MX + 54} y={p.y + 4} width="50" height="44" rx="3" fill="#5b5b5b" />
+              <text x={MX + 79} y={p.y + 30} text-anchor="middle" class="tag onbox">W</text>
+              <text x={MX} y={p.y + 64} class="tag"><tspan class="strong">x</tspan> · {p.n} × {fmtN(D_MODEL)}, a row per position</text>
+              <text x={MX} y={p.y + 77} class="tag"><tspan class="strong">W</tspan> · {fmtN(D_MODEL)} × {fmtN(D_FF)} = {W_MB} MB</text>
             </g>
           {/each}
           <!-- what the picture shows, on the first panel -->
           <g in:fade={{ delay: 1500, duration: 250 }}>
             <path d="M {lx(1) + 2} {78 + 61} V {78 + 66}" fill="none" stroke="var(--faint)" stroke-width="1" />
-            <text x={lx(1) - 4} y={78 + 77} class="tag">layer 1's math, as soon as its weights arrive and while layer 2 is read · then compute waits for layer 2</text>
+            <text x={lx(1) - 4} y={78 + 77} class="tag">layer 1's math runs while layer 2 is read, then waits</text>
           </g>
           <g in:fade={{ delay: 2000 }}>
-            <text x={W / 2} y="290" text-anchor="middle" class="legend">5 positions make each burst of math 5 times longer, and it still ends before the next layer arrives</text>
-            <text x={W / 2} y="310" text-anchor="middle" class="legend">so the pass ends when the read ends: {fmt1(T_READ)} ms, for 1 position or 5</text>
+            <text x={W / 2} y="296" text-anchor="middle" class="legend">5 rows make each burst of math 5 times longer, and it still ends before the next layer arrives</text>
+            <text x={W / 2} y="314" text-anchor="middle" class="legend">so the pass ends when the read ends: {fmt1(T_READ)} ms, for 1 position or 5</text>
           </g>
-          <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">the whole pass: {fmt1(T_READ)} ms of reading against {T_TOK.toFixed(3)} ms of math per position (Ch. 4 Step 5)</text>
+          <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">W: one of a layer's weight matrices (the MLP's gate) · the pass: {fmt1(T_READ)} ms of reading, {T_TOK.toFixed(3)} ms of math a position (Ch. 4 Step 5)</text>
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">the math is drawn about {ENL}× wider than scale so it shows</text>
         </g>
       {/if}
@@ -282,7 +294,7 @@
                   <text x={gx(x, j) + 20} y={BY + 15} text-anchor="middle" class="tag onbox">pass {j + 1}</text>
                   <path d="M {gx(x, j) + 20} {BY - 2} V {GY + 26}" fill="none" stroke={DRAFT_C} stroke-width="1.3" marker-end="url(#sd-arrow-gen)" />
                   {#if j < N - 1}
-                    <path d="M {gx(x, j) + 34} {GY + 22} C {gx(x, j) + 40} {GY + 36}, {gx(x, j + 1) - 10} {BY + 11}, {gx(x, j + 1) - 3} {BY + 11}" fill="none" stroke={DRAFT_C} stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#sd-arrow-gen)" />
+                    <path d="M {gx(x, j) + 36} {GY + 22} C {gx(x, j) + 40} {GY + 34}, {gx(x, j + 1) + 8} {BY - 18}, {gx(x, j + 1) + 8} {BY - 10} L {gx(x, j + 1) + 8} {BY - 3}" fill="none" stroke={DRAFT_C} stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#sd-arrow-gen)" />
                   {/if}
                 {/each}
                 <rect x={gx(x, 0)} y={IY} width="40" height="18" rx="5" fill="var(--accent-soft)" stroke={TARGET_C} />
