@@ -517,7 +517,7 @@
           </g>
           <!-- why the link matters, in one example -->
           <g in:fade={{ delay: 1700 }}>
-            <text x="18" y="296" class="pt">·</text><text x="28" y="296" class="legend">the link: in DFlash, guess 4 is made without knowing guess 3 is "The"; here it follows it, "The city"</text>
+            <text x="18" y="296" class="pt">·</text><text x="28" y="296" class="legend">the link: in DFlash each guess is made on its own; here each next guess is based on the guess before it</text>
             <text x="18" y="313" class="pt">·</text><text x="28" y="313" class="legend">the cut: in a full batch, checking a likely miss takes room from other requests, so fewer are sent</text>
           </g>
           <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">the chances are illustrative · each is the product of the guess's own score and those above it, which must all survive</text>
