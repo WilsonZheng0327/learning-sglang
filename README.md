@@ -57,7 +57,7 @@ The step is now mostly the weight read: get more tokens out of it, or make it sm
 
 | # | Chapter | Hook | Status |
 |---|---|---|---|
-| 21 | Speculative decoding | Guess several tokens, verify in one step. | planned |
+| 21 | [Speculative decoding](https://wilsonzheng0327.github.io/learning-sglang/ch/21-speculative-decoding/) | Guess several tokens, verify in one step. | live |
 | 22 | Quantization | Shrinking the read every step pays for. | planned |
 | 23 | Two-batch overlap | Hiding communication behind compute. | planned |
 

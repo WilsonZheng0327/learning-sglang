@@ -34,7 +34,7 @@ export const chapters: Chapter[] = [
   { part: 'omni', slug: '19-streaming-audio', title: 'Streaming audio decode', hook: 'Output with a real-time deadline.', ready: false },
   { part: 'omni', slug: '20-full-duplex', title: 'Full duplex', hook: 'Listening while speaking.', ready: false },
 
-  { part: 'faster', slug: '21-speculative-decoding', title: 'Speculative decoding', hook: 'Guess several tokens, verify in one step.', ready: false },
+  { part: 'faster', slug: '21-speculative-decoding', title: 'Speculative decoding', hook: 'Guess several tokens, verify in one step.', ready: true },
   { part: 'faster', slug: '22-quantization', title: 'Quantization', hook: 'Shrinking the read every step pays for.', ready: false },
   { part: 'faster', slug: '23-two-batch-overlap', title: 'Two-batch overlap', hook: 'Hiding communication behind compute.', ready: false },
 
