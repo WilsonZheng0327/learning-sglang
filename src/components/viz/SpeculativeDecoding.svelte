@@ -30,8 +30,9 @@
     { d: 'MT-Bench · chat', v: [2.66, 3.11, 3.72] },
   ];
 
-  type Scene = 'before' | 'after' | 'map' | 'eagle' | 'dflash' | 'dspark' | 'compare';
+  type Scene = 'pass' | 'before' | 'after' | 'map' | 'eagle' | 'dflash' | 'dspark' | 'compare';
   const steps: { scene: Scene; caption: string }[] = [
+    { scene: 'pass', caption: `A pass reads the weights one layer at a time, and each layer's math runs as soon as its weights arrive, while the next layer is read. With 5 positions each burst of math is 5 times longer and still ends before the next layer arrives.` },
     { scene: 'before', caption: `Normal decoding writes one token per pass, and each pass reads all ${W_GB} GB of weights in ${fmt1(T_READ)} ms. Five positions in one pass do 5 times the math, and the math still finishes inside that one read.` },
     { scene: 'after', caption: `So guess the next tokens. A draft model proposes ${N}, and the target checks them in one pass. It keeps the ones it agrees with, puts its own token at the first miss, and drops the rest, here ${KEPT + 1} tokens.` },
     { scene: 'map', caption: `The three drafters differ in how they make the ${N} guesses. EAGLE makes them one pass at a time, DFlash all in one pass, and DSpark in one pass plus a short chain that links each guess to the one before.` },
@@ -47,36 +48,31 @@
     if (q >= 1 && q <= steps.length) step = q - 1;
   });
   const cur = $derived(steps[step]);
-  // step 2's loop: the draft's 4 guesses one by one, the verify pass, the target's picks, what is kept
+  // step 3's animation, played once: the draft's 4 guesses one by one, the verify pass, the target's picks, what is kept
   let lap = $state(0), lapMs = $state(0);           // the looping step's laps, for LoopProgress
   const nextLap = (ms: number) => untrack(() => { lapMs = ms; lap++; });   // untracked, so starting a lap does not re-run the effect
   let sp = $state(7);
   $effect(() => {
     if (cur.scene !== 'after') return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    const AT = [800, 1700, 2600, 3500, 4600, 6300, 7600];
-    const LAP = 11600;
-    const run = () => {
-      sp = 0;
-      AT.forEach((t, i) => timers.push(setTimeout(() => (sp = i + 1), t)));
-      timers.push(setTimeout(run, LAP));
-      nextLap(LAP);
-    };
-    run();
+    const AT = [800, 1900, 3000, 4100, 5400, 7200, 8800];
+    sp = 0;
+    AT.forEach((t, i) => timers.push(setTimeout(() => (sp = i + 1), t)));
+    nextLap(AT[AT.length - 1]);
     return () => timers.forEach(clearTimeout);
   });
   const W = 720, H = 400;
   const RED = 'var(--eos)', GREEN = '#16a34a', DRAFT_C = 'var(--gen)', TARGET_C = 'var(--accent)';
 
-  // the shared time axis of steps 1 and 2
+  // the shared time axis of steps 2 and 3
   const X0 = 74, PX_MS = 26;
   const tx = (ms: number) => X0 + ms * PX_MS;
   const BURSTS = 16;                                    // the compute lane's bursts, a layer pair each: math happens as each layer's weights arrive
   const BURST_W = 1.2;                                  // one position's burst, drawn wide enough to see
   const MATH_X = Math.round((BURSTS * BURST_W) / (T_TOK * PX_MS));   // how much wider than scale
-  const T_GUESS = 0.3;                                  // one draft guess, drawn at a nominal length (steps 4–6)
+  const T_GUESS = 0.3;                                  // one draft pass, drawn at a nominal length (steps 5–7)
   const DRAFT_END = N * T_GUESS;
-  // the rows steps 1 and 2 share
+  // the rows steps 2 and 3 share
   const YA = 96, YB = 160, BAR_H = 22, AXIS_Y = 204;
 </script>
 
@@ -91,7 +87,7 @@
         {/each}
       </defs>
 
-      <!-- the pieces steps 1 and 2 share: the axis, one pass (its read, its math), the autoregressive row -->
+      <!-- the pieces steps 2 and 3 share: the axis, one pass (its read, its math), the autoregressive row -->
       {#snippet axis(y: number)}
         <line x1={tx(0)} y1={y} x2={tx(20)} y2={y} stroke="var(--faint)" />
         {#each [0, 5, 10, 15, 20] as t}
@@ -122,6 +118,44 @@
         <text x={tx(T_PLAIN) + 8} y={YA + 15} class="tag strong">{N} tokens · {fmt1(T_PLAIN)} ms</text>
       {/snippet}
 
+      <!-- 1: inside one pass · each layer's weights arrive, its math runs while the next layer is read; 1 position against 5 -->
+      {#if cur.scene === 'pass'}
+        {@const LX0 = 92}
+        {@const LN = 8}
+        {@const LCW = 74}
+        {@const BW1 = 5}
+        {@const lx = (k: number) => LX0 + k * LCW}
+        {@const panels = [{ y: 78, n: 1, t: '1 position · normal decoding' }, { y: 178, n: 5, t: '5 positions in one pass' }]}
+        {@const ENL = Math.round(BW1 / ((T_TOK / LAYERS) * (LCW / (T_READ / LAYERS))))}
+        <g transition:fade={{ duration: 250 }}>
+          <text x="16" y="42" class="rowlabel">inside one pass · the weights arrive a layer at a time · the first {LN} of {LAYERS} layers</text>
+          {#each panels as p, pi}
+            <g in:fade={{ delay: 100 + pi * 700, duration: 250 }}>
+              <text x="16" y={p.y} class="boxtitle">{p.t}</text>
+              <text x={LX0 - 8} y={p.y + 25} text-anchor="end" class="tag strong">memory</text>
+              <text x={LX0 - 8} y={p.y + 53} text-anchor="end" class="tag strong">compute</text>
+              {#each Array(LN) as _, k}
+                <rect x={lx(k)} y={p.y + 10} width={LCW - 2} height="22" rx="3" fill="#5b5b5b" opacity={k % 2 ? 0.8 : 1} />
+                <text x={lx(k) + LCW / 2} y={p.y + 25} text-anchor="middle" class="tag onbox">layer {k + 1}</text>
+                <rect x={lx(k) + LCW - 2} y={p.y + 40} width={BW1 * p.n} height="18" rx="2" fill={TARGET_C} />
+              {/each}
+              <rect x={lx(0)} y={p.y + 40} width={LN * LCW + BW1 * p.n} height="18" rx="3" fill="none" stroke="var(--line)" />
+            </g>
+          {/each}
+          <!-- what the picture shows, on the first panel -->
+          <g in:fade={{ delay: 1500, duration: 250 }}>
+            <path d="M {lx(1) + 2} {78 + 61} V {78 + 66}" fill="none" stroke="var(--faint)" stroke-width="1" />
+            <text x={lx(1) - 4} y={78 + 77} class="tag">layer 1's math, as soon as its weights arrive and while layer 2 is read · then compute waits for layer 2</text>
+          </g>
+          <g in:fade={{ delay: 2000 }}>
+            <text x={W / 2} y="290" text-anchor="middle" class="legend">5 positions make each burst of math 5 times longer, and it still ends before the next layer arrives</text>
+            <text x={W / 2} y="310" text-anchor="middle" class="legend">so the pass ends when the read ends: {fmt1(T_READ)} ms, for 1 position or 5</text>
+          </g>
+          <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">the whole pass: {fmt1(T_READ)} ms of reading against {T_TOK.toFixed(3)} ms of math per position (Ch. 4 Step 5)</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">the math is drawn about {ENL}× wider than scale so it shows</text>
+        </g>
+      {/if}
+
       <!-- 1: before and after · one pass per token, against one pass over 5 positions -->
       {#if cur.scene === 'before'}
         <g transition:fade={{ duration: 250 }}>
@@ -142,22 +176,20 @@
             <text x="282" y="249" class="tag">math, done layer by layer as the weights arrive: {T_TOK.toFixed(3)} ms a position</text>
           </g>
           <g in:fade={{ delay: 1200 }}>
-            <text x="18" y="286" class="pt">·</text><text x="28" y="286" class="legend">each pass writes one token, because the next position needs the token before it (Ch. 1 Step 11)</text>
-            <text x="18" y="303" class="pt">·</text><text x="28" y="303" class="legend">the two lanes run at once, and the pass ends when the read ends, whether 1 position or 5 (Ch. 4 Step 5)</text>
-            <text x="18" y="320" class="pt">·</text><text x="28" y="320" class="legend">so if the next {N} tokens were known, {N} reads would become 1</text>
+            <text x={W / 2} y="300" text-anchor="middle" class="legend">if the next {N} tokens were known, {N} reads would become 1</text>
           </g>
           <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">the math is drawn about {MATH_X}× wider than scale so it shows</text>
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">batch 1 · the KV cache read is left out, small at this length (Ch. 4 Step 6)</text>
         </g>
       {/if}
 
-      <!-- 2: speculative decoding · step 1's second row, built as it happens: the draft's guesses, then one pass that checks them -->
+      <!-- 3: speculative decoding · step 2's second row, built as it happens: the draft's guesses, then one pass that checks them -->
       {#if cur.scene === 'after'}
         {@const CX = 150}
         {@const CW = 86}
         {@const ROWS = [{ y: 244, n: 'the draft guesses', c: DRAFT_C }, { y: 272, n: "the target's picks", c: TARGET_C }, { y: 300, n: 'kept', c: 'var(--fg)' }]}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="42" class="rowlabel">speculative decoding · step 1's second row, with a draft in front</text>
+          <text x="16" y="42" class="rowlabel">speculative decoding · step 2's second row, with a draft in front</text>
           {@render autoregressive()}
 
           <!-- the speculative row, built on its timeline as the round runs -->
@@ -165,13 +197,16 @@
           {@render lanes(YB)}
           {#each Array(N) as _, k}
             {#if sp >= k + 1}
-              <rect x={tx(k * T_GUESS)} y={YB} width={T_GUESS * PX_MS - 1.5} height={BAR_H} rx="2" fill={DRAFT_C} opacity="0.85" transition:fade={{ duration: 200 }} />
+              <g transition:fade={{ duration: 200 }}>
+                <rect x={tx(k * T_GUESS)} y={YB} width={T_GUESS * PX_MS - 1.5} height={BAR_H} rx="2" fill={DRAFT_C} opacity="0.85" />
+                <rect x={tx(k * T_GUESS) + T_GUESS * PX_MS - 3} y={YB + BAR_H + 4} width="1.5" height="6" fill={DRAFT_C} />
+              </g>
             {/if}
           {/each}
           {#if sp >= 5}
             <g transition:fade={{ duration: 150 }}>{@render pass(DRAFT_END, YB, 5, 'verify · 5 positions')}</g>
           {/if}
-          {#if sp >= 1}<text x={tx(DRAFT_END + T_READ) + 8} y={YB + 30} class="tag" style:fill={DRAFT_C} transition:fade={{ duration: 200 }}>amber: the draft, {N} small reads</text>{/if}
+          {#if sp >= 1}<text x={tx(DRAFT_END + T_READ) + 8} y={YB + 30} class="tag" style:fill={DRAFT_C} transition:fade={{ duration: 200 }}>amber: the draft, a small model · {N} passes, each a small read and a little math</text>{/if}
           {#if sp >= 7}
             <text x={tx(DRAFT_END + T_READ) + 8} y={YB + 15} class="tag strong" transition:fade={{ duration: 300 }}>{KEPT + 1} tokens · draft + {fmt1(T_READ)} ms</text>
           {/if}
@@ -211,8 +246,8 @@
               <text x={W / 2} y="347" text-anchor="middle" class="need"><tspan class="strong">time per token</tspan> = (the draft's small reads + the target's one read) ÷ tokens kept</text>
             </g>
           {/if}
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">the draft is drawn at a nominal length (its cost is steps 4–6) · with sampling, an acceptance test keeps the target's distribution</text>
-          <LoopProgress ms={lapMs} {lap} />
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">the draft is drawn at a nominal length (its cost is steps 5–7) · with sampling, an acceptance test keeps the target's distribution</text>
+          <LoopProgress ms={lapMs} {lap} label="plays once" />
         </g>
       {/if}
 
@@ -279,14 +314,14 @@
         </g>
       {/if}
 
-      <!-- the target's layers, drawn across, with tapped layers lit; shared by steps 4 and 5 -->
+      <!-- the target's layers, drawn across, with tapped layers lit; shared by steps 5 and 6 -->
       {#snippet layers(x: number, y: number, taps: number[], names: string[])}
-        <text {x} y={y - 8} class="tag strong">the target · {LAYERS} layers, left to right</text>
+        <text {x} y={y - (names.length ? 20 : 8)} class="tag strong">the target · {LAYERS} layers, left to right</text>
         {#each Array(LAYERS) as _, l}
           <rect x={x + l * 7} {y} width="5" height="30" rx="1" fill={taps.includes(l) ? TARGET_C : 'var(--line)'} />
         {/each}
         {#each taps as l, k}
-          {#if names[k]}<text x={x + l * 7 + 2.5} y={y + 44} text-anchor="middle" class="tag">{names[k]}</text>{/if}
+          {#if names[k]}<text x={x + l * 7 + 2.5} y={y - 5} text-anchor="middle" class="tag">{names[k]}</text>{/if}
         {/each}
       {/snippet}
       {#snippet num(x: number, y: number, n: number)}
@@ -308,10 +343,10 @@
           <text x="16" y="42" class="rowlabel">1 of 3 · EAGLE · one small layer, one guess per pass</text>
           <!-- ① the target's hidden states, fused -->
           <g in:fade={{ delay: 100, duration: 250 }}>
-            {@render num(30, 84, 1)}
-            {@render layers(hx(0) - 60, 76, TAPS, ['low', 'middle', 'high'])}
+            {@render num(30, 96, 1)}
+            {@render layers(hx(0) - 60, 82, TAPS, ['low', 'middle', 'high'])}
             {#each TAPS as l}
-              <path d="M {hx(0) - 60 + l * 7 + 2.5} 108 C {hx(0) - 60 + l * 7 + 2.5} 150, {hx(0) + HW / 2} 160, {hx(0) + HW / 2} {CY - 21}" fill="none" stroke={TARGET_C} stroke-width="1.1" marker-end="url(#sd-arrow-acc)" />
+              <path d="M {hx(0) - 60 + l * 7 + 2.5} 114 C {hx(0) - 60 + l * 7 + 2.5} 150, {hx(0) + HW / 2} 160, {hx(0) + HW / 2} {CY - 21}" fill="none" stroke={TARGET_C} stroke-width="1.1" marker-end="url(#sd-arrow-acc)" />
             {/each}
             <text x={hx(0) - 60 + 236} y="140" class="tag">its hidden states at 3 depths, into pass 1</text>
           </g>
@@ -339,7 +374,7 @@
             <path d="M {hx(0)} 284 V 290 H {hx(N - 1) + HW} V 284" fill="none" stroke="var(--faint)" />
             <text x={(hx(0) + hx(N - 1) + HW) / 2} y="304" text-anchor="middle" class="tag strong">{N} passes, one after another: each waits for the guess before it</text>
           </g>
-          <text x={W / 2} y="340" text-anchor="middle" class="legend" in:fade={{ delay: 1200 }}>then the target checks all {N} guesses in one pass (step 2)</text>
+          <text x={W / 2} y="340" text-anchor="middle" class="legend" in:fade={{ delay: 1200 }}>then the target checks all {N} guesses in one pass (step 3)</text>
           <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">EAGLE-3: a low, a middle and a high layer fused, trained on its own drafts · layer positions drawn for illustration</text>
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang also branches: 4 candidates a step, the 8 likeliest checked as a tree (--speculative-eagle-topk 4)</text>
         </g>
@@ -400,7 +435,7 @@
           </g>
           <text x={W / 2} y="340" text-anchor="middle" class="legend" in:fade={{ delay: 1300 }}>no guess sees the others, so later ones miss more: on chat 72% of first guesses survive, 63% of 7th</text>
           <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">DFlash: Chen, Liang, Liu (ICML 2026) · {N} positions drawn; its default block is 16, in the same one pass · taps illustrative</text>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">survival rates: DSpark's paper, Qwen3-4B target, given every earlier guess survived</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">survival rates: DSpark's paper, Qwen3-4B target, given every earlier guess survived (step 8's setup)</text>
         </g>
       {/if}
 
@@ -424,7 +459,7 @@
             {@render num(C.pass + 42, 80, 2)}
             <text x={C.pass + 42} y="102" text-anchor="middle" class="tag strong">DFlash's one pass</text>
             <rect x={C.pass} y={RY(0) - 12} width="84" height={RY(N - 1) - RY(0) + 24} rx="6" fill={DRAFT_C} opacity="0.85" />
-            <text x={C.pass + 42} y={(RY(0) + RY(N - 1)) / 2 + 4} text-anchor="middle" class="tag onbox">step 5</text>
+            <text x={C.pass + 42} y={(RY(0) + RY(N - 1)) / 2 + 4} text-anchor="middle" class="tag onbox">as in step 6</text>
           </g>
           <!-- ③ the guesses, each linked to the one above -->
           <g in:fade={{ delay: 500, duration: 250 }}>
@@ -435,10 +470,10 @@
               <rect x={C.g} y={RY(j) - 10} width="60" height="20" rx="5" fill="var(--gen-soft)" stroke={DRAFT_C} />
               <text x={C.g + 30} y={RY(j) + 4} text-anchor="middle" class="mono strong">{t.trim()}</text>
               {#if j < N - 1}
-                <path d="M {C.g + 64} {RY(j) + 2} C {C.g + 80} {RY(j) + 6}, {C.g + 80} {RY(j + 1) - 6}, {C.g + 66} {RY(j + 1) - 3}" fill="none" stroke={GREEN} stroke-width="1.6" marker-end="url(#sd-arrow-grn)" />
+                <path d="M {C.g + 62} {RY(j) + 2} C {C.g + 86} {RY(j) + 2}, {C.g + 86} {RY(j + 1)}, {C.g + 76} {RY(j + 1)} L {C.g + 64} {RY(j + 1)}" fill="none" stroke={GREEN} stroke-width="1.6" marker-end="url(#sd-arrow-grn)" />
               {/if}
             {/each}
-            <text x={C.g + 84} y={(RY(0) + RY(N - 1)) / 2 + 4} class="tag" style:fill={GREEN}>small head</text>
+            <text x={C.g + 92} y={(RY(0) + RY(N - 1)) / 2 + 4} class="tag" style:fill={GREEN}>small head</text>
           </g>
           <!-- ④ the chance each survives, and the trim -->
           <g in:fade={{ delay: 900, duration: 250 }}>
@@ -469,7 +504,7 @@
           </g>
           <!-- why the link matters, in one example -->
           <g in:fade={{ delay: 1700 }}>
-            <text x="18" y="296" class="pt">·</text><text x="28" y="296" class="legend">the link: "of course" and "no problem" both fit, so guessed apart DFlash can write <tspan class="mono strong" style:fill={RED}>of problem</tspan></text>
+            <text x="18" y="296" class="pt">·</text><text x="28" y="296" class="legend">the link: in DFlash, guess 4 is made without knowing guess 3 is "The"; here it follows it, "The city"</text>
             <text x="18" y="313" class="pt">·</text><text x="28" y="313" class="legend">the cut: in a full batch, checking a likely miss takes room from other requests, so fewer are sent</text>
           </g>
           <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">the chances are illustrative · each is the product of the guess's own score and those above it, which must all survive</text>
