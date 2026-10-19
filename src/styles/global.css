@@ -78,10 +78,9 @@ a { color: inherit; text-decoration: none; }
 .home .star { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.6rem 1.05rem; border: 1px solid var(--line); border-radius: 999px; background: white; color: var(--muted); font-weight: 550; font-size: 0.95rem; transition: border-color 150ms, color 150ms; }
 .home .star:hover { border-color: var(--accent); color: var(--fg); }
 .home .star svg { color: var(--fg); }
-.home .how { display: grid; gap: 0.9rem; font-size: 0.9rem; line-height: 1.5; color: var(--muted); padding-top: 1.6rem; }
-.home .how > div { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem 1rem; }
-.home .how b { color: var(--fg); font-weight: 600; display: block; margin-bottom: 0.2rem; }
-.home .how kbd { font: inherit; font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--line); border-radius: 4px; padding: 0 0.3em; background: var(--bg); }
+.home .demo { margin: 0; background: white; border: 1px solid var(--line); border-radius: 14px; padding: 0.75rem 0.9rem 0.85rem; }
+.home .demo figcaption { font-size: 0.85rem; line-height: 1.5; color: var(--muted); text-align: center; margin-top: 0.3rem; }
+.home .demo kbd { font: inherit; font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--line); border-radius: 4px; padding: 0 0.3em; background: var(--bg); }
 .home .toc { margin-top: 2rem; }
 .home .toc h2 { font-size: 1.15rem; margin: 0 0 0.2rem; letter-spacing: -0.01em; }
 .home .toc .blurb { margin: 0 0 1rem; color: var(--muted); font-size: 0.9rem; }
