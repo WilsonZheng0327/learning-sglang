@@ -24,6 +24,11 @@ a { color: inherit; text-decoration: none; }
 /* ---- shell: sidebar + a stage that fills the viewport ---- */
 .shell { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); min-height: 100vh; }
 
+/* page to page, only the content fades: the sidebar is its own view-transition layer and does not animate.
+   overflow-anchor: none, or the browser nudges the restored scroll down a pixel on every page */
+@view-transition { navigation: auto; }
+::view-transition-group(sidebar), ::view-transition-old(sidebar), ::view-transition-new(sidebar) { animation: none; }
+.sidebar { view-transition-name: sidebar; overflow-anchor: none; }
 .sidebar { background: var(--panel); border-right: 1px solid var(--line); padding: 1.5rem 1.5rem 1.25rem; position: sticky; top: 0; height: 100vh; overflow: auto; display: flex; flex-direction: column; }
 .sidebar .brand { display: block; color: var(--fg); margin-bottom: 0.25rem; font-weight: 650; font-size: 1.05rem; letter-spacing: -0.01em; }
 .sidebar .tagline { color: var(--muted); font-size: 0.8rem; margin: 0 0 1.75rem; }

@@ -6,6 +6,8 @@ import '../styles/global.css';
 import '../styles/stage.css';
 import { chapters, parts } from '../chapters';
 import { site } from '../site';
+import interUrl from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
+import monoUrl from '@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2?url';
 
 // MDX passes frontmatter both spread and as `frontmatter`; accept either.
 const fm = (Astro.props as any).frontmatter ?? Astro.props;
@@ -24,6 +26,9 @@ const next = idx >= 0 ? chapters[idx + 1] : undefined;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+    <!-- preloaded so a page's first paint already has them: a font swapping in after it shifts the sidebar's text -->
+    <link rel="preload" href={interUrl} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={monoUrl} as="font" type="font/woff2" crossorigin />
     <title>{title} · {site.name}</title>
   </head>
   <body>
@@ -52,6 +57,16 @@ const next = idx >= 0 ? chapters[idx + 1] : undefined;
           Star on GitHub
         </a>
       </nav>
+      <script is:inline>
+        // Keep the sidebar where the reader left it across page loads. Runs before first paint, so it never jumps.
+        (() => {
+          const nav = document.querySelector('.sidebar');
+          const saved = sessionStorage.getItem('sidebar-scroll');
+          if (saved !== null) nav.scrollTop = +saved;
+          else nav.querySelector('li.current')?.scrollIntoView({ block: 'center' });
+          addEventListener('pagehide', () => sessionStorage.setItem('sidebar-scroll', String(nav.scrollTop)));
+        })();
+      </script>
       {chapter ? (
         <main class="stage">
           <header class="stage-head">
