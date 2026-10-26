@@ -21,14 +21,13 @@
   const FRAMES = (A_SEC * 1000) / FRAME_MS;                                    // 250 in the answer
   const CHUNK = 10;                                  // frames code2wav turns into sound per pass (SGLang-Omni's default)
 
-  type Scene = 'request' | 'encoders' | 'speech' | 'map' | 'waits' | 'gpu';
+  type Scene = 'request' | 'encoders' | 'speech' | 'map' | 'waits';
   const steps: { scene: Scene; caption: string }[] = [
     { scene: 'request', caption: `Text gets a tokenizer in front of the engine and a detokenizer after it (Ch. 1 Steps 2 and 11). An omni request needs a converter on each side too: a photo and a spoken question in, a spoken answer out.` },
     { scene: 'encoders', caption: `The left box is an encoder per input: a vision model turns the photo into ${fmt(IMG_POS)} prompt positions, an audio model turns the question into ${AUD_POS}. They join the prompt, and the engine prefills it as before.` },
     { scene: 'speech', caption: `Each token also goes to three more models. The talker writes a frame's code 0, the code predictor its codes 1–${CODES_PER_FRAME - 1}, then the next frame; every ${CHUNK} frames, code2wav turns them into sound.` },
     { scene: 'map', caption: `The whole request is six models of two kinds. Three read their input and are done; three are loops like the one in Ch. 1 Step 11, where each step waits for the one before it.` },
-    { scene: 'waits', caption: `The engine pauses only when its own scheduler runs something else. The talker pauses because its token isn't written yet, a check SGLang's scheduler never makes.` },
-    { scene: 'gpu', caption: `Alone, the talker leaves its GPU nearly idle; shared, its step can land behind a long prefill, and neither loop sees the other. What decides how they share it, and how do tokens get across?` },
+    { scene: 'waits', caption: `The talker waits for each token the engine writes, a check SGLang never makes. And SGLang runs one loop per process. Where does the talker's loop run, and how does each token reach it?` },
   ];
 
   let step = $state(0);
@@ -527,61 +526,6 @@
         </g>
       {/if}
       <!-- 6: where the talker runs · alone it barely uses a GPU; shared, it and the engine can want the GPU at the same moment -->
-      {#if cur.scene === 'gpu'}
-        {@const X0 = 130}
-        {@const X1 = 700}
-        {@const TW = 3}
-        {@const engineRun = (x0: number, x1: number, seed: number) => { const out: { x: number; w: number; prefill: boolean }[] = []; let x = x0, i = 0; while (x < x1) { const prefill = i % 7 === 4; const w = Math.min(prefill ? 70 : 20 + ((i * 37 + seed) % 15), x1 - x); out.push({ x, w, prefill }); x += w + 3; i++; } return out; }}
-        {@const ticks = (x0: number, x1: number, n: number) => Array.from({ length: n }, (_, i) => x0 + ((i + 0.5) * (x1 - x0)) / n)}
-        {@const shared = (() => { const out: { x: number; w: number; talker: boolean; prefill: boolean }[] = []; let x = X0, i = 0, next = X0 + 30; while (x < 430) { if (x >= next) { out.push({ x, w: TW, talker: true, prefill: false }); x += TW + 2; next += 63; continue; } const prefill = i === 4; const w = prefill ? 70 : 20 + ((i * 37 + 7) % 15); out.push({ x, w, talker: false, prefill }); x += w + 2; i++; } return out; })()}
-        {@const D = shared[shared.length - 1].x + shared[shared.length - 1].w + 8}
-        <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="42" class="rowlabel">who gets the GPU? · alone the talker barely uses one; shared, two loops compete for it</text>
-
-          <!-- each model on its own GPU -->
-          <g in:fade={{ delay: 100, duration: 250 }}>
-            <text x="16" y="72" class="boxtitle">the talker on its own GPU</text>
-            <text x="16" y="96" class="tag strong">GPU 0 · engine</text>
-            <text x="16" y="124" class="tag strong">GPU 1 · talker</text>
-            {#each engineRun(X0, X1, 3) as b}
-              <rect x={b.x} y="82" width={b.w} height="20" rx="3" fill="var(--gen)" opacity={b.prefill ? 0.75 : 0.45} />
-            {/each}
-            <rect x={X0} y="110" width={X1 - X0} height="20" rx="3" fill="#f6f4ee" stroke="var(--line)" />
-            {#each ticks(X0, X1, 9) as x}
-              <rect x={x} y="110" width={TW} height="20" fill="var(--accent)" />
-            {/each}
-            <text x={X0} y="148" class="tag strong">the talker's GPU: under 2% utilization over time</text>
-          </g>
-
-          <!-- both on one GPU: up to the marked moment, then two pieces of work ready at once -->
-          <g in:fade={{ delay: 600, duration: 250 }}>
-            <text x="16" y="186" class="boxtitle">the talker and the engine on one GPU</text>
-            <text x="16" y="212" class="tag strong">GPU 0 · both</text>
-            {#each shared as b}
-              <rect x={b.x} y="196" width={b.w} height="22" rx={b.talker ? 1 : 3} fill={b.talker ? 'var(--accent)' : 'var(--gen)'} opacity={b.talker ? 0.9 : b.prefill ? 0.75 : 0.45} />
-            {/each}
-            <line x1={D} y1="190" x2={D} y2="224" stroke="var(--fg)" stroke-dasharray="3 2" />
-            <text x={D} y="238" text-anchor="middle" class="tag strong">now</text>
-          </g>
-          <g in:fade={{ delay: 1000, duration: 250 }}>
-            <rect x={D + 14} y="182" width={TW} height="22" fill="var(--accent)" />
-            <text x={D + 26} y="197" class="tag strong">A's next frame · one talker step</text>
-            <rect x={D + 14} y="210" width="70" height="22" rx="3" fill="var(--gen)" opacity="0.75" />
-            <text x={D + 92} y="225" class="tag strong">C's prefill · the engine</text>
-            <text x={D + 14} y="250" class="tag">both ready at once: which goes first?</text>
-          </g>
-
-          <g in:fade={{ delay: 1500 }}>
-            <text x="16" y="288" class="legend">inside one engine, Ch. 6 Step 9's scheduler made this call; here each model has its own loop, and neither sees the other's queue</text>
-          </g>
-          <g in:fade={{ delay: 700 }}>
-            <rect x="30" y="313" width="660" height="28" rx="14" fill="var(--accent-soft)" stroke="var(--accent)" />
-            <text x={W / 2} y="332" text-anchor="middle" class="need"><tspan class="strong">needed:</tspan> a way for two loops to share one GPU, its memory and its time</text>
-          </g>
-          <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote">amber: the engine's work, darker for a prefill · blue: the talker's steps · time runs left to right, not to scale</text>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang-Omni's design notes: a talker alone on an H200 sat at under 2% utilization, so stages may now share GPUs</text>
-        </g>
-      {/if}
       {#if cur.scene === 'speech' || cur.scene === 'waits'}<LoopProgress ms={lapMs} {lap} />{/if}
     </svg>
   </div>

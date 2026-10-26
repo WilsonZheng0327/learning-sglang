@@ -21,6 +21,8 @@ Read it to check wording and numbers across chapters without opening the compone
 | 13 | [torch.compile](13-torch-compile.md) | 11 |
 | 14 | [Attention backends](14-attention-backends.md) | 13 |
 | 15 | [Speculative decoding](15-speculative-decoding.md) | 8 |
-| 16 | [Omni models](16-omni-models.md) | 6 |
+| 16 | [Omni models](16-omni-models.md) | 5 |
 | 17 | [Stages and schedulers](17-stages-and-schedulers.md) | 12 |
 | 18 | [Between stages](18-between-stages.md) | 11 |
+| 19 | [Sharing GPUs](19-sharing-gpus.md) | 6 |
+| 20 | [Streaming audio decode](20-streaming-audio.md) | 6 |

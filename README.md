@@ -48,8 +48,8 @@ Speech and vision break the assumptions of Part I, one at a time.
 | 16 | [Omni models](https://wilsonzheng0327.github.io/learning-sglang/ch/16-omni-models/) | Pixels and speech in, speech out. | live |
 | 17 | [Stages and schedulers](https://wilsonzheng0327.github.io/learning-sglang/ch/17-stages-and-schedulers/) | Seven stages, three kinds of scheduler. | live |
 | 18 | [Between stages](https://wilsonzheng0327.github.io/learning-sglang/ch/18-between-stages/) | Eight edges, four ways to cross them. | live |
-| 19 | Sharing GPUs | Several models, one card. | planned |
-| 20 | Streaming audio decode | Output with a real-time deadline. | planned |
+| 19 | [Sharing GPUs](https://wilsonzheng0327.github.io/learning-sglang/ch/19-sharing-gpus/) | Several models, one card. | live |
+| 20 | [Streaming audio decode](https://wilsonzheng0327.github.io/learning-sglang/ch/20-streaming-audio/) | Output with a real-time deadline. | live |
 | 21 | Full duplex | Listening while speaking. | planned |
 
 ### More from one GPU

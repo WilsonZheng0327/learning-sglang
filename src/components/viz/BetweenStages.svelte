@@ -558,7 +558,7 @@
           {/each}
           <g in:fade={{ delay: 800 }}>
             <text x="18" y="282" class="pt">·</text><text x="28" y="282" class="legend">four stages share GPU 0, each needing weights and working memory, the thinker also a KV cache</text>
-            <text x="18" y="299" class="pt">·</text><text x="28" y="299" class="legend">talker_ar has GPU 1 to itself, and leaves it under 2% busy (Ch. {CH_OMNI} Step 6)</text>
+            <text x="18" y="299" class="pt">·</text><text x="28" y="299" class="legend">talker_ar has GPU 1 to itself, and keeps it 86% busy with 8 requests at once (chapter {CH_GPUS})</text>
             <text x="18" y="316" class="pt">·</text><text x="28" y="316" class="legend">moving a stage changes which path its edges take (step 4)</text>
           </g>
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">who decides the layout, and how one GPU's memory is split between its stages: chapter {CH_GPUS}</text>

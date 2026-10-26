@@ -27,6 +27,4 @@ import { neighbors } from '../../chapters';
 
 **The talker's wait.** SGLang-Omni's talker scheduler (`talker_scheduler.py`) holds a decode batch until every request in it has its next input. Steps 5 and 6 draw when tokens arrive and when the engine is busy as an illustration, not a measurement: how often the talker waits depends on how busy the engine is.
 
-**The 2%.** SGLang-Omni's refactor notes (`docs/design/refactor_rfc.md`) record that a talker given its own H200 sat at under 2% utilization, the reason its stages may now share a GPU. They do not say under what load; step 6's timelines are not to scale.
-
 </details>

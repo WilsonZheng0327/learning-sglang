@@ -32,3 +32,10 @@ export const CODES_PER_FRAME = 16;         // speech out: codes that describe on
 export const CODE_VALUES = 2048;           // each code is one of 2,048 values
 export const SAMPLES_PER_FRAME = 1920;     // sound samples the codec writes per frame (8 · 5 · 4 · 3 · 2 · 2)
 export const OMNI_HIDDEN = 2048;           // the thinker's width: numbers in one token's vector (and in one encoder embedding)
+// Qwen3-Omni's parameters, in billions, counted from its checkpoint; × BYTES for its bf16 weights in GB.
+// The talker's count includes its code predictor.
+export const OMNI_PARAMS_B = { thinker: 30.5, talker: 3.3, audio: 0.65, vision: 0.54, code2wav: 0.22 };
+// the thinker's attention: k and v for one token, across its layers, is 96 KB
+export const OMNI_LAYERS = 48;
+export const OMNI_KV_HEADS = 4;
+export const OMNI_KB_PER_TOKEN = (OMNI_LAYERS * OMNI_KV_HEADS * HEAD_DIM * 2 * BYTES) / 1024;
