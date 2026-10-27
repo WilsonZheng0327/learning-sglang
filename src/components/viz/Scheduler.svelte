@@ -69,7 +69,7 @@
     { scene: 'timeline', mode: 'chunked', caption: `Cap the prefill batch. Split prompts into chunks and alternate: a chunk, a decode step, a chunk, a decode step. The freeze is now one chunk long, whatever the prompt's size. The first token arrives a little later.`, foot: CHUNK_FOOT },
     { scene: 'timeline', mode: 'mixed', caption: `Once prefill comes in chunks, a chunk is small enough to ride inside a decode step, on compute the decodes leave idle. No freeze at all, first token in ${fmt(M.mixed.ttft)}. Sarathi-Serve's idea, vLLM v1's default, SGLang's mixed-chunk option.` },
     { scene: 'compare', caption: `Same GPU, same prompt, three policies. Prefill-first: fastest first token, worst freeze. Chunked: a bounded freeze. Mixed: none. The chunk size is the knob between the two clocks, and it belongs to the scheduler, not the model.`, foot: CHUNK_FOOT },
-    { scene: 'loop', caption: `So each step the scheduler asks: anyone waiting, and room in the cache? Then a prefill batch, in policy order, capped by the chunk size. Otherwise the decode batch. Room in the cache is the next question, and it's a whole chapter.` },
+    { scene: 'loop', caption: `Each step the scheduler asks: anyone waiting, and room in the cache? If so, a prefill batch up to the chunk size, plus the decodes if mixing is on. If not, the decode batch. What counts as room is chapter ${chNum('07-kv-memory')}.` },
   ];
 
   let step = $state(0);
@@ -323,36 +323,51 @@
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#b8b4aa" />
             </marker>
           </defs>
-          <text x="16" y="60" class="rowlabel">one scheduler step</text>
+          <text x="16" y="52" class="rowlabel">one scheduler step</text>
           <g in:fly={{ y: 8, duration: 300 }}>
-            <rect x="230" y="80" width="260" height="56" rx="12" fill="white" stroke="var(--fg)" stroke-width="1.5" />
-            <text x="360" y="104" text-anchor="middle" class="slab strong small">anyone waiting, and room in the cache?</text>
-            <text x="360" y="124" text-anchor="middle" class="tag">the cache question is chapter {chNum('07-kv-memory')}</text>
+            <rect x="190" y="62" width="340" height="60" rx="12" fill="white" stroke="var(--fg)" stroke-width="1.5" />
+            <text x="360" y="84" text-anchor="middle" class="slab strong small">anyone waiting, and room in the cache?</text>
+            <text x="360" y="101" text-anchor="middle" class="tag">the cache question is chapter {chNum('07-kv-memory')}</text>
+            <text x="360" y="115" text-anchor="middle" class="tag">with an interval N, also: N decode steps since the last prefill</text>
           </g>
           <g in:fly={{ y: 8, delay: 300, duration: 300 }}>
-            <path d="M 300 136 V 158 H 180 V 176" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#arrowhead)" />
-            <text x="292" y="154" text-anchor="end" class="tag strong">yes</text>
-            <rect x="40" y="180" width="280" height="96" rx="12" fill="#fbfaf7" stroke="var(--accent)" />
-            <text x="56" y="204" class="slab strong small">a prefill batch</text>
-            <text x="56" y="226" class="tag">from the waiting list, in policy order:</text>
-            <text x="56" y="241" class="tag">first come · shortest first · longest cached prefix</text>
-            <text x="56" y="262" class="tag">capped at the chunk size, mixed in if enabled</text>
+            <path d="M 270 122 V 146" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#arrowhead)" />
+            <text x="278" y="140" class="tag strong">yes</text>
+            <rect x="20" y="150" width="436" height="152" rx="12" fill="#fbfaf7" stroke="var(--accent)" />
+            <text x="36" y="172" class="slab strong small">a prefill batch</text>
+            <text x="36" y="190" class="tag">from the waiting list, in policy order:</text>
+            <text x="36" y="204" class="tag">first come · shortest first · longest cached prefix, up to the chunk size</text>
+            <!-- mixing off: the prefill batch alone -->
+            <rect x="34" y="216" width="198" height="78" rx="8" fill="white" stroke="var(--line)" />
+            <rect x="46" y="227" width="18" height="10" rx="2" fill="var(--accent)" />
+            <text x="72" y="236" class="tag strong">mixing off · the default</text>
+            <text x="46" y="256" class="tag">the prefill runs alone</text>
+            <text x="46" y="270" class="tag">the running ones wait a step</text>
+            <!-- mixing on: every running request's next token rides along -->
+            <rect x="244" y="216" width="198" height="78" rx="8" fill="white" stroke="var(--line)" />
+            <rect x="256" y="227" width="18" height="5" rx="1.5" fill="var(--accent)" /><rect x="256" y="232" width="18" height="5" rx="1.5" fill="var(--gen)" />
+            <text x="282" y="236" class="tag strong">mixing on · step 7</text>
+            <text x="256" y="256" class="tag">every running request's next token</text>
+            <text x="256" y="270" class="tag">rides in the same pass</text>
+            <text x="256" y="284" class="tag">the two share the chunk size</text>
           </g>
           <g in:fly={{ y: 8, delay: 600, duration: 300 }}>
-            <path d="M 420 136 V 158 H 540 V 176" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#arrowhead)" />
-            <text x="428" y="154" class="tag strong">no</text>
-            <rect x="400" y="180" width="280" height="96" rx="12" fill="#fbfaf7" stroke="var(--gen)" />
-            <text x="416" y="204" class="slab strong small">the decode batch</text>
-            <text x="416" y="226" class="tag">everyone running, one token each</text>
-            <text x="416" y="241" class="tag">finished sequences leave, freeing their cache</text>
-            <text x="416" y="262" class="tag">a recording per batch size → CUDA graph replay, chapter {CH_CUDA}</text>
+            <path d="M 530 92 H 582 V 146" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#arrowhead)" />
+            <text x="590" y="124" class="tag strong">no</text>
+            <rect x="472" y="150" width="220" height="152" rx="12" fill="#fbfaf7" stroke="var(--gen)" />
+            <text x="488" y="172" class="slab strong small">the decode batch</text>
+            <text x="488" y="190" class="tag">everyone running, one token each</text>
+            <text x="488" y="204" class="tag">finished sequences leave,</text>
+            <text x="488" y="218" class="tag">freeing their cache</text>
+            <text x="488" y="256" class="tag">one recording per batch size →</text>
+            <text x="488" y="270" class="tag">CUDA graph replay, chapter {CH_CUDA}</text>
           </g>
           <g in:fade={{ delay: 1000 }}>
-            <path d="M 180 276 V 320 H 218" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#arrowhead)" />
-            <path d="M 540 276 V 320 H 502" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#arrowhead)" />
-            <rect x="222" y="300" width="276" height="40" rx="10" fill="var(--fg)" />
-            <text x="360" y="325" text-anchor="middle" class="steplabel big">one forward pass · then back to the top</text>
-            <path d="M 360 340 V 354 H 702 V 108 H 496" fill="none" stroke="#b8b4aa" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+            <path d="M 120 302 V 329 H 218" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#arrowhead)" />
+            <path d="M 582 302 V 329 H 502" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#arrowhead)" />
+            <rect x="222" y="314" width="276" height="30" rx="10" fill="var(--fg)" />
+            <text x="360" y="333" text-anchor="middle" class="steplabel big">one forward pass · then back to the top</text>
+            <path d="M 360 344 V 356 H 708 V 40 H 360 V 58" fill="none" stroke="#b8b4aa" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
           </g>
           <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote" in:fade={{ delay: 1400 }}>SGLang: <tspan class="mono">schedule_policy</tspan>, <tspan class="mono">chunked_prefill_size</tspan>, <tspan class="mono">prefill_decode_interval</tspan>, <tspan class="mono">enable_mixed_chunk</tspan></text>
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1400 }}>this loop is <tspan class="mono">Scheduler.get_next_batch_to_run()</tspan></text>
