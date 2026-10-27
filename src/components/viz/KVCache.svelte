@@ -3,7 +3,7 @@
   import { cubicOut } from 'svelte/easing';
   import StepControls from '../StepControls.svelte';
   import type { NavLink } from '../../chapters';
-  import { KB_PER_TOKEN } from '../../numbers';
+  import { KB_PER_TOKEN, LAYERS, KV_HEADS, HEAD_DIM, BYTES } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- Data --------------------------------------------------------------------------------
@@ -35,7 +35,7 @@
     { n: 6, cached: 6, compute: [5], attend: 5, caption: `Its query reads every key in the cache and blends every value in the cache. Same result as recomputing, because the cache holds exactly what recomputing would have produced.` },
     { n: 7, cached: 7, compute: [6], flyIn: true, store: true, attend: 6, caption: `Next token, same routine. One column of compute, one more slot, one read of the whole cache.` },
     { n: 7, cached: 7, compute: [6], whyNotQ: true, caption: `Why not keep q too? Nobody asks for it later. A query is used on the step it's made, and its output is consumed right there.` },
-    { n: 7, cached: 7, compute: [6], cost: true, caption: `The cache isn't free. Every token keeps a k and a v in every head of every layer. For an 8B model that's about ${KB_PER_TOKEN} KB per token, per sequence.` },
+    { n: 7, cached: 7, compute: [6], cost: true, caption: `The cache isn't free. Every token keeps a k and a v in each of Llama-3-8B's ${KV_HEADS}&nbsp;k,&nbsp;v&nbsp;heads (Ch. 2 Step 14), in every layer. That's ${KB_PER_TOKEN} KB per token, per sequence.` },
     { n: 7, cached: 7, compute: [6], cost: true, contrast: true, caption: `Look at the two kinds of step. The first crunched five tokens and wrote five slots. Every step since computes one token and reads the whole cache. Two very different jobs.` },
   ];
 
@@ -180,7 +180,7 @@
         <g in:fade>
           <text x="18" y={CACHE.y + CACHE.h + 24} class="pt">·</text><text x="28" y={CACHE.y + CACHE.h + 24} class="legend">
             <tspan class="strong">{cur.cached} tokens × {KB_PER_TOKEN} KB</tspan> = {cacheKB.toLocaleString()} KB
-            <tspan class="muted">   (32 layers · 8 kv heads · 128 dims · k and v · 2 bytes)</tspan>
+            <tspan class="muted">   ({LAYERS} layers · {KV_HEADS} k, v heads · {HEAD_DIM} dims · k and v · {BYTES} bytes)</tspan>
           </text>
           <text x="18" y={CACHE.y + CACHE.h + 44} class="pt">·</text><text x="28" y={CACHE.y + CACHE.h + 44} class="legend" in:fade={{ delay: 500 }}>
             at 8k tokens: <tspan class="strong">{((8192 * KB_PER_TOKEN) / 1024 / 1024).toFixed(0)} GB</tspan>, for one sequence. Keep that number in mind.

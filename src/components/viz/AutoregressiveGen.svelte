@@ -22,7 +22,7 @@
   const rounds: Round[] = [
     { dist: [{ text: ' Paris', p: 0.82 }, { text: ' Lyon', p: 0.05 }, { text: ' a', p: 0.04 }, { text: ' the', p: 0.03 }], pick: { text: ' Paris', id: 12366, kind: 'gen' } },
     { dist: [{ text: '.', p: 0.71 }, { text: ',', p: 0.15 }, { text: ' and', p: 0.06 }, { text: '!', p: 0.02 }], pick: { text: '.', id: 13, kind: 'gen' } },
-    { dist: [{ text: '<EOS>', p: 0.88 }, { text: ' It', p: 0.05 }, { text: ' The', p: 0.03 }, { text: '\\n', p: 0.02 }], pick: { text: '<EOS>', id: 2, kind: 'eos' } },
+    { dist: [{ text: '<EOS>', p: 0.88 }, { text: ' It', p: 0.05 }, { text: ' The', p: 0.03 }, { text: '\\n', p: 0.02 }], pick: { text: '<EOS>', id: 128001, kind: 'eos' } },
   ];
 
   // ---- Expand the script into flat steps: each step is a complete state + caption -------------
@@ -169,6 +169,12 @@
           <rect x="16" y={modelY + 12} width="200" height="30" rx="6" fill="white" stroke="var(--eos)" />
           <text x="28" y={modelY + 31} class="id">output: <tspan class="out">"{generated}"</tspan></text>
         </g>
+      {/if}
+
+      {#if cur.phase === 'tokenize'}
+        <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade>{"Llama-3's tokenizer also puts <|begin_of_text|> (id 128000) in front · left out here"}</text>
+      {:else if cur.phase === 'done'}
+        <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade>SGLang also stops a request at max_new_tokens (default 128), or at a stop string or token id it names</text>
       {/if}
 
       <!-- Tally: one row of cells per round, aligned under the token each cell recomputed -->

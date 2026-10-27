@@ -16,6 +16,7 @@ export const KV_HEADS = 8;           // grouped-query attention: 4 query heads p
 export const HEAD_DIM = 128;
 export const D_MODEL = 4096;
 export const D_FF = 14336;
+export const VOCAB = 128256;         // tokens in the vocabulary
 export const BYTES = 2;              // bf16
 
 // k and v for one token, across the model: 128 KB (chapter 3)

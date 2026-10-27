@@ -55,16 +55,16 @@
 
   // ---- Script ---------------------------------------------------------------------------------------------
   type Scene = 'pair' | 'tree' | 'chat' | 'closing';
-  interface Step { caption: string; scene: Scene; variant?: number }
+  interface Step { caption: string; scene: Scene; variant?: number; foot?: string }
   const steps: Step[] = [
     { scene: 'pair', variant: 0, caption: `Two requests arrive with the same first ${SHARED} tokens: the same system prompt. Same tokens at the same positions give exactly the same k and v. Paged as before, each gets its own copy: the same numbers written twice.` },
     { scene: 'pair', variant: 1, caption: `Let B's page table point at A's pages instead. B prefills only its ${TAIL_B}-token tail and reads the shared ${SHARED}. Those pages now have two owners, so they're freed only when both are done.` },
     { scene: 'pair', variant: 2, caption: `How do we know they share? Compare token ids from the start. Position i's k and v depend on every token before it, so only a matching <b>prefix</b> can be reused: one different token, and everything after it is new.` },
     { scene: 'tree', variant: 0, caption: `Hundreds of requests share in nests: the same system prompt, then one of a few templates, then the chat so far. That's a tree of prefixes. SGLang keeps it as a radix tree, each node owning the pages for its tokens: <b>RadixAttention</b>.` },
-    { scene: 'tree', variant: 1, caption: `A newcomer walks the tree: ${matched} of its ${newTotal} tokens are already there, so it prefills ${NEW.tokens}. First token in ${fmt(stepMs(NEW.tokens))} instead of ${fmt(stepMs(newTotal))}, and ${matched} tokens of cache it never had to allocate.` },
-    { scene: 'chat', caption: `Chat is the big win. Every turn's prompt is the previous turn plus a question. Without the tree, turn 3 re-prefills the whole conversation, ${(cumBefore(2) + turns[2].q).toLocaleString()} tokens. With it, ${turns[2].q}.` },
+    { scene: 'tree', variant: 1, caption: `A newcomer walks the tree: ${matched} of its ${newTotal} tokens are already there, so it prefills ${NEW.tokens}. First token in ${fmt(stepMs(NEW.tokens))} instead of ${fmt(stepMs(newTotal))}, and ${matched} tokens of cache it never had to allocate.`, foot: `SGLang matches whole pages, so with ${PAGE}-token pages this match would stop at ${Math.floor(matched / PAGE) * PAGE} · its default page is 1 token, where ${matched} is exact` },
+    { scene: 'chat', caption: `Chat is the big win. Every turn's prompt is the previous turn plus a question. Without the tree, turn 3 re-prefills the whole conversation, ${(cumBefore(2) + turns[2].q).toLocaleString()} tokens. With it, ${turns[2].q}.`, foot: `plus one token a turn: the answer's last token was never fed back in, so its k and v were never written` },
     { scene: 'tree', variant: 2, caption: `Nodes nobody is running stay as long as memory allows. When the pool needs pages, the least recently used branch goes first. Pages of running requests are pinned and never evicted.` },
-    { scene: 'closing', caption: `And the scheduler knows all this. Longest-prefix-match orders the waiting list by how much is already cached: cheapest prefill first, and the hot branches stay hot. Next: where requests come from, and where the tokens go.` },
+    { scene: 'closing', caption: `The scheduler can use this: longest-prefix-match puts the most-cached requests first. SGLang defaults to first come, first served, and reuse works under both. Next: where requests come from and where tokens go.` },
   ];
 
   let step = $state(0);
@@ -283,7 +283,7 @@
           {/each}
           <g in:fade={{ delay: 1200 }}>
             <text x={bx - 10} y="306" class="pt">·</text><text x={bx} y="306" class="legend">three turns: <tspan class="strong">{noTreeTotal.toLocaleString()}</tspan> prompt tokens prefilled without the tree, <tspan class="strong" fill="var(--accent)">{treeTotal}</tspan> with it</text>
-            <text x={bx - 10} y="328" class="pt">·</text><text x={bx} y="328" class="legend">the answer gets cached too: it's the prefix of the next turn. Nothing is ever prefilled twice.</text>
+            <text x={bx - 10} y="328" class="pt">·</text><text x={bx} y="328" class="legend">the answer gets cached too, all but its last token: it's the prefix of the next turn</text>
           </g>
         </g>
       {/if}
@@ -297,7 +297,7 @@
             </marker>
           </defs>
           <text x="16" y="44" class="rowlabel">the same three waiting requests · which one gets the next prefill batch?</text>
-          {#each [{ title: 'first come, first served', list: waiting, y: 60, c: 'var(--faint)' }, { title: 'longest prefix match · SGLang default', list: lpm, y: 212, c: 'var(--accent)' }] as row, r}
+          {#each [{ title: 'first come, first served · SGLang default', list: waiting, y: 60, c: 'var(--faint)' }, { title: 'longest prefix match · opt-in', list: lpm, y: 212, c: 'var(--accent)' }] as row, r}
             {@const ph = 24 + row.list.length * 34 + 10}
             <g in:fade={{ delay: r * 600 }}>
               <rect x="24" y={row.y} width="680" height={ph} rx="12" fill="#fbfaf7" stroke={row.c} />
@@ -320,9 +320,12 @@
           <g in:fade={{ delay: 1400 }}>
             <rect x="162" y="366" width="12" height="12" rx="2" fill="var(--accent-soft)" stroke="var(--accent)" /><text x="180" y="376" class="tag">already in the tree</text>
             <rect x="296" y="366" width="12" height="12" rx="2" fill="var(--accent)" opacity="0.9" /><text x="314" y="376" class="tag">must be prefilled</text>
-            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang: <tspan class="mono">schedule_policy=lpm</tspan></text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang: <tspan class="mono">--schedule-policy lpm</tspan> (default <tspan class="mono">fcfs</tspan>) · lpm falls back to fcfs past 128 waiting requests</text>
           </g>
         </g>
+      {/if}
+      {#if cur.foot}
+        {#key cur.foot}<text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade>{cur.foot}</text>{/key}
       {/if}
     </svg>
   </div>

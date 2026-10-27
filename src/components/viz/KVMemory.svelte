@@ -10,7 +10,7 @@
   const tMem = W_GB / BW;
   const tComp = (n: number) => (n * GFLOP) / FLOPS;
   const BALANCE = Math.round(tMem / tComp(1) / 50) * 50;
-  const seqGB = (ctx: number) => (ctx * KB_TOK) / 1e6;
+  const seqGB = (ctx: number) => (ctx * KB_TOK * 1024) / 1e9;   // KB_TOK is KiB: 128 × 1,024 bytes
   const capAt = (ctx: number) => Math.floor((HBM_GB - W_GB) / seqGB(ctx));
   const BAR = { x: 40, y: 120, w: 640, h: 44 };
   const pxPerGB = BAR.w / HBM_GB;
@@ -47,15 +47,16 @@
 
   // ---- Script ----------------------------------------------------------------------------------------------
   type Scene = 'room' | 'caps' | 'reserve' | 'alloc' | 'free' | 'closing';
-  interface Step { caption: string; scene: Scene; base?: number[]; alloc?: number[]; owner?: number; name?: string }
+  interface Step { caption: string; scene: Scene; base?: number[]; alloc?: number[]; owner?: number; name?: string; foot?: string }
+  const POOL_FOOT = `SGLang keeps about 17% of the card for activations and CUDA graphs (--mem-fraction-static, 0.83 here), so its pool is nearer 55 GB`;
   const steps: Step[] = [
-    { scene: 'room', caption: `The scheduler checks for room for KV cache before admitting a new request. ${HBM_GB} GB on the card, ${W_GB} GB of weights, and everything else is room for KV cache. Running requests fill it a token per step.` },
-    { scene: 'caps', caption: `How many fit? Same card, three context lengths. At 4k tokens each, ${capAt(4096)} requests. At 8k, ${capAt(8192)}. At 32k, ${capAt(32768)}. Compute could take ${BALANCE} per step; memory never lets it get there.` },
+    { scene: 'room', caption: `The scheduler checks for room for KV cache before admitting a new request. ${HBM_GB} GB on the card, ${W_GB} GB of weights, and everything else is room for KV cache. Running requests fill it a token per step.`, foot: POOL_FOOT },
+    { scene: 'caps', caption: `How many fit? Same card, three context lengths. At 2k tokens each, ${capAt(2048)} requests. At 4k, ${capAt(4096)}. At 8k, ${capAt(8192)}. Compute could take ${BALANCE} per step; at these lengths memory never lets it get there.`, foot: POOL_FOOT },
     { scene: 'reserve', caption: `The naive way: reserve each request's maximum length up front, in one contiguous block. Most never use it, and finished requests leave holes no newcomer fits into. Most of the card, wasted.` },
-    { scene: 'alloc', base: pages0, alloc: allocA, owner: 5, name: 'req 6', caption: `<b>Paging</b>: cut the room into fixed-size pages. A newcomer's cache isn't one block; it's however many pages it needs, taken from anywhere that's free, with the page numbers written in its table. No holes, nothing reserved.` },
-    { scene: 'free', caption: `When a request finishes, its pages go straight back to the pool. No compaction, nobody else moves. The pool just has more free pages, wherever they happen to be.` },
+    { scene: 'alloc', base: pages0, alloc: allocA, owner: 5, name: 'req 6', caption: `<b>Paging</b>: cut the room into fixed-size pages. A newcomer's cache isn't one block; it's however many pages it needs, taken from anywhere that's free, with the page numbers written in its table. No holes, no pages held in advance.` },
+    { scene: 'free', caption: `When a request finishes, its pages go straight back to the pool. No compaction, nobody else moves. The pool just has more free pages, wherever they happen to be.`, foot: `with prefix caching off · SGLang keeps a finished request's pages in its prefix cache until it needs them (chapter ${CH_PREFIX})` },
     { scene: 'alloc', base: pages2, alloc: allocB, owner: 6, name: 'req 7', caption: `The next newcomer takes what it needs from those, or any other free pages. Its table lists them, and the attention kernel follows the table. vLLM pages 16 tokens at a time; SGLang, 1.` },
-    { scene: 'closing', caption: `Admission is a count: free pages against pages needed. Yes: admit and write the table. No: wait for a finish, or retract the newest request. Sharing pages between requests: next chapter.` },
+    { scene: 'closing', caption: `Admission is a count: free pages against pages needed. Yes: admit and write the table. No: wait for a finish. If the running requests themselves run out, one is retracted. Sharing pages: next chapter.` },
   ];
 
   let step = $state(0);
@@ -121,25 +122,25 @@
       <!-- Caps: the same card at three context lengths -->
       {#if cur.scene === 'caps'}
         <g transition:fade={{ duration: 250 }}>
-          {#each [4096, 8192, 32768] as ctx, r}
+          {#each [2048, 4096, 8192] as ctx, r}
             {@const y = 70 + r * 98}
             {@const n = capAt(ctx)}
             {@const h = 34}
             <g in:fade={{ delay: r * 300 }}>
-              <text x={BAR.x} y={y - 10} class="rowlabel">every request at {ctx / 1024}k tokens of context · {(seqGB(ctx) * 1000).toFixed(0)} MB each</text>
+              <text x={BAR.x} y={y - 10} class="rowlabel">every request at {ctx / 1024}k tokens of context · {Math.round(seqGB(ctx) * 1000).toLocaleString()} MB each</text>
               <rect x={BAR.x} {y} width={BAR.w} height={h} rx="7" fill="white" stroke="var(--line)" />
               <rect x={BAR.x} {y} width={W_GB * pxPerGB} height={h} rx="7" fill="var(--accent)" opacity="0.9" />
               <text x={BAR.x + (W_GB * pxPerGB) / 2} y={y + 22} text-anchor="middle" class="steplabel">weights</text>
               {#each Array(n) as _, i}
                 {@const x = BAR.x + W_GB * pxPerGB + i * seqGB(ctx) * pxPerGB}
-                <rect {x} y={y + 1} width={Math.max(0.8, seqGB(ctx) * pxPerGB - 1)} height={h - 2} fill="#0891b2" opacity={0.55 + 0.35 * (i % 2)} in:fly={{ x: -5, delay: r * 300 + 100 + i * (ctx > 8192 ? 40 : 8), duration: 200 }} />
+                <rect {x} y={y + 1} width={Math.max(0.8, seqGB(ctx) * pxPerGB - 1)} height={h - 2} fill="#0891b2" opacity={0.55 + 0.35 * (i % 2)} in:fly={{ x: -5, delay: r * 300 + 100 + i * (ctx > 4096 ? 20 : 6), duration: 200 }} />
               {/each}
               <text x={BAR.x + BAR.w} y={y + h + 16} text-anchor="end" class="legend"><tspan class="strong">{n} requests</tspan> fit</text>
             </g>
           {/each}
           <g in:fade={{ delay: 1400 }}>
-            <text x={BAR.x} y="360" class="legend">Ch. 5 Step 4's sweet spot was {BALANCE} requests decoding at once;</text>
-            <text x={BAR.x} y="378" class="legend">the most this card ever holds is {capAt(4096)}, and that's at a short context</text>
+            <text x={BAR.x} y="340" class="legend">Ch. 5 Step 4's sweet spot was {BALANCE} requests decoding at once;</text>
+            <text x={BAR.x} y="358" class="legend">even at a short 2k context, this card holds {capAt(2048)}</text>
           </g>
         </g>
       {/if}
@@ -278,7 +279,7 @@
           <g in:fly={{ y: 8, duration: 300 }}>
             <rect x="40" y="70" width="290" height="56" rx="12" fill="white" stroke="var(--fg)" stroke-width="1.5" />
             <text x="185" y="94" text-anchor="middle" class="slab strong small">free pages ≥ pages needed?</text>
-            <text x="185" y="114" text-anchor="middle" class="tag">needed: one per running request, plus the prompt</text>
+            <text x="185" y="114" text-anchor="middle" class="tag">needed: its prompt, plus every answer still to come</text>
           </g>
           <g in:fly={{ y: 8, delay: 300, duration: 300 }}>
             <path d="M 110 126 V 168" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#kvarrow)" />
@@ -294,8 +295,8 @@
             <text x="56" y="290" class="slab strong small">wait</text>
             <text x="56" y="310" class="tag">until a running request finishes</text>
             <text x="56" y="326" class="tag">and frees its pages</text>
-            <text x="56" y="346" class="tag">pool dry and nobody finishing?</text>
-            <text x="56" y="362" class="tag"><tspan class="strong">retract</tspan> the newest request, re-prefill it later</text>
+            <text x="56" y="346" class="tag">running requests out of pages, nobody finishing?</text>
+            <text x="56" y="362" class="tag"><tspan class="strong">retract</tspan> the one with least output, re-prefill it later</text>
           </g>
 
           <!-- what a request holds: a list of page numbers -->
@@ -323,8 +324,11 @@
             <text x="366" y="366" class="tag muted">a list sent to another GPU → chapter {CH_DISAGG}</text>
           </g>
           </g>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1500 }}>SGLang: <tspan class="mono">TokenToKVPool</tspan> · <tspan class="mono">req_to_token</tspan> · <tspan class="mono">retract_decode</tspan></text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1500 }}>SGLang: <tspan class="mono">MHATokenToKVPool</tspan> · <tspan class="mono">TokenToKVPoolAllocator</tspan> · <tspan class="mono">req_to_token</tspan> · <tspan class="mono">PrefillAdder</tspan> · <tspan class="mono">retract_decode</tspan></text>
         </g>
+      {/if}
+      {#if cur.foot}
+        {#key cur.foot}<text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade>{cur.foot}</text>{/key}
       {/if}
     </svg>
   </div>

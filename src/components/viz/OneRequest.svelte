@@ -4,10 +4,11 @@
   import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
   import { W_GB, HBM_GB, BW, KB_PER_TOKEN as KB_TOK } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
-  const CH_ENGINE = chNum('10-engine'), CH_TP = chNum('24-tensor-parallel'), CH_DISAGG = chNum('28-disaggregation');
+  const CH_ENGINE = chNum('10-engine'), CH_TP = chNum('24-tensor-parallel'), CH_DP = chNum('26-dp-attention');
 
   const tStep = W_GB / BW;                                  // ≈ 4.8 ms decode step, from chapter 4
-  const RUNNING = Math.floor((HBM_GB - W_GB) / ((4096 * KB_TOK) / 1e6));   // chapter 7's cap at 4k context: 122
+  const MB_4K = (4096 * KB_TOK * 1024) / 1e6;               // one request at 4k context: 537 MB (KB_TOK is KiB)
+  const RUNNING = Math.floor(((HBM_GB - W_GB) * 1000) / MB_4K);   // chapter 7's cap at 4k context: 119
   const OPEN = 3000, WAITING = 41;                          // an example load: 3,000 tabs open, 41 just submitted
   const fmt = (ms: number) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms';
 
@@ -15,7 +16,7 @@
   type Scene = 'system' | 'timeline' | 'queue' | 'zmq' | 'many';
   interface Step { caption: string; scene: Scene; v?: number }
   const steps: Step[] = [
-    { scene: 'system', v: 0, caption: `Launch the server. It loads the ${W_GB} GB of weights onto the GPU, carves the rest of the card into a KV pool, and opens an HTTP port. Then it waits.` },
+    { scene: 'system', v: 0, caption: `Launch the server. It loads the ${W_GB} GB of weights onto the GPU, carves most of the rest of the card into a KV pool, and opens an HTTP port. Then it waits.` },
     { scene: 'system', v: 1, caption: `A client sends a chat request: JSON over HTTP, with <code>stream: true</code>. The server parses it and applies the chat template. Now it has a string, and the GPU can't use a string.` },
     { scene: 'system', v: 2, caption: `Tokenization turns the text into ids, Ch. 1 Step 2. It's CPU work: microseconds for a short prompt, a couple of milliseconds for a long one. Now the ids need to reach the scheduler.` },
     { scene: 'timeline', v: 0, caption: `Put it all in one process and the scheduler loop shares one Python interpreter with the HTTP server, the tokenizer, and the detokenizer. Python runs one at a time, so every one of those jobs lands between steps while the GPU idles.` },
@@ -24,7 +25,7 @@
     { scene: 'zmq', v: 1, caption: `Three wires, three queues, each touched by exactly two processes. The same request rides around the outside, changing shape at each hop but keeping its rid. A queue over a Unix socket works over TCP too.` },
     { scene: 'system', v: 3, caption: `Inside the scheduler the message becomes a <b>Req</b>, the object that carries this request from here on. It joins the waiting list, gets its prefill, then a token every step, as chapters 6 to 8 described.` },
     { scene: 'system', v: 4, caption: `The detokenizer turns each id into text, and the server writes it to the client's open connection as a server-sent event, one per token. Words appear as they're decoded.` },
-    { scene: 'many', caption: `Open connections cost the server process memory, not GPU time. The scheduler runs a few hundred at once; everyone else waits in line, connection open, no tokens yet. That line is the backpressure. Inside the loop: chapter ${CH_ENGINE}.` },
+    { scene: 'many', caption: `Open connections cost the server process memory, not GPU time. The scheduler runs as many as memory allows, ${RUNNING} here; everyone else waits in line, connection open, no tokens yet. That line is the backpressure. Inside the loop: chapter ${CH_ENGINE}.` },
   ];
 
   let step = $state(0);
@@ -100,7 +101,7 @@
       {#if cur.scene === 'system'}
         {@const procs = v >= 3}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="40" class="rowlabel">{v === 0 ? 'python -m sglang.launch_server --model-path … --port 30000' : v <= 2 ? 'one request comes in' : 'one request, all the way through'}</text>
+          <text x="16" y="40" class="rowlabel">{v === 0 ? 'sglang serve --model-path … --port 30000' : v <= 2 ? 'one request comes in' : 'one request, all the way through'}</text>
 
           <!-- client -->
           {#if v >= 1}
@@ -147,7 +148,7 @@
             </g>
           {:else}
             <text x={SC.x + 12} y={SC.y + 122} class="tag">waiting list: empty · running: none</text>
-            <text x={SC.x + 12} y={SC.y + 140} class="tag">stepping {Math.round(1000 / tStep)}× a second, doing nothing yet</text>
+            <text x={SC.x + 12} y={SC.y + 140} class="tag">polling its inbox, no GPU work yet</text>
           {/if}
 
           <!-- detokenizer -->
@@ -187,7 +188,7 @@
             {/if}
           {/if}
           {#if v === 0}
-            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 900 }}>weights loaded once; the KV pool is the {HBM_GB - W_GB} GB from Ch. 7 Step 1; the loop from Ch. 6 Step 9 is already spinning</text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 900 }}>weights loaded once; the KV pool is most of Ch. 7 Step 1's {HBM_GB - W_GB} GB; the loop from Ch. 6 Step 9 is already spinning</text>
           {/if}
         </g>
       {/if}
@@ -293,7 +294,7 @@
           <text x={QX + QW / 2} y="276" text-anchor="middle" class="tag">process 1 puts and moves on · process 2 takes everything at the top of its next step</text>
           <g in:fade={{ delay: 5600 }}>
             <text x="30" y="318" class="pt">·</text><text x="40" y="318" class="legend">the same shape on every wire: scheduler → detokenizer, detokenizer → server</text>
-            <text x="30" y="340" class="pt">·</text><text x="40" y="340" class="legend">a Unix socket underneath, tens of microseconds; messages sit in the sender's queue until the receiver takes them</text>
+            <text x="30" y="340" class="pt">·</text><text x="40" y="340" class="legend">a Unix socket underneath, tens of microseconds; messages wait in the receiver's queue until it asks for them</text>
           </g>
         </g>
       {/if}
@@ -337,8 +338,8 @@
           <!-- the object, riding around the outside, in the shape each wire carries -->
           {#each [
             { x: 272, y: 22, w: 176, title: 'TokenizedGenerateReqInput', body: 'rid a1f3 · ids […]', c: 'var(--accent)', bg: 'var(--accent-soft)' },
-            { x: 520, y: 248, w: 176, title: 'BatchTokenIDOut', body: 'rids […] · ids [12366, …]', c: 'var(--gen)', bg: 'var(--gen-soft)' },
-            { x: 24, y: 248, w: 176, title: 'BatchStrOut', body: 'rids […] · [" Paris", …]', c: '#0891b2', bg: '#cffafe' },
+            { x: 520, y: 248, w: 176, title: 'BatchTokenIDOutput', body: 'rids […] · ids [12366, …]', c: 'var(--gen)', bg: 'var(--gen-soft)' },
+            { x: 24, y: 248, w: 176, title: 'BatchStrOutput', body: 'rids […] · [" Paris", …]', c: '#0891b2', bg: '#cffafe' },
           ] as m, i}
             <g in:fly={{ y: 6, delay: 700 + i * 250, duration: 300 }}>
               <rect x={m.x} y={m.y} width={m.w} height="38" rx="8" fill={m.bg} />
@@ -348,7 +349,7 @@
           {/each}
 
           <g in:fade={{ delay: 1500 }}>
-            <text x="360" y="386" text-anchor="middle" class="tag"><tspan class="strong">any transport</tspan> · ipc:// on one machine, tcp:// across machines, same code. Chapter {CH_DISAGG}.</text>
+            <text x="360" y="386" text-anchor="middle" class="tag"><tspan class="strong">any transport</tspan> · ipc:// here; tcp:// with data-parallel attention (chapter {CH_DP}), same code</text>
           </g>
         </g>
       {/if}
@@ -356,12 +357,11 @@
       <!-- Many clients -->
       {#if cur.scene === 'many'}
         {@const idle = OPEN - RUNNING - WAITING}
-        {@const chunk = 300 - RUNNING}
-        <g transition:fade={{ duration: 250 }}>
+                <g transition:fade={{ duration: 250 }}>
           <text x="16" y="44" class="rowlabel">an example load · {OPEN.toLocaleString()} chat tabs open on this server</text>
           {#each [
             { v: OPEN.toLocaleString(), l: 'open connections', s: ['an assumption for this example', `${idle.toLocaleString()} idle · ${RUNNING} running · ${WAITING} queued`], c: 'var(--accent)' },
-            { v: String(RUNNING), l: 'running', s: ["Ch. 7 Step 2's memory cap at 4k context", `${HBM_GB - W_GB} GB ÷ 524 MB = ${RUNNING} running at most`], c: 'var(--gen)' },
+            { v: String(RUNNING), l: 'running', s: ["Ch. 7 Step 2's memory cap at 4k context", `${HBM_GB - W_GB} GB ÷ ${Math.round(MB_4K)} MB = ${RUNNING} running at most`], c: 'var(--gen)' },
             { v: String(WAITING), l: 'waiting', s: ['submitted this second, not yet admitted', 'connection open, no tokens yet'], c: 'var(--eos)' },
           ] as t, i}
             {@const x = 24 + i * 226}
@@ -377,15 +377,13 @@
             <text x="24" y="190" class="rowlabel">what one step of the loop carries</text>
             <rect x="24" y="200" width={RUNNING * 1.9} height="26" rx="5" fill="var(--gen)" opacity="0.9" />
             <text x={24 + (RUNNING * 1.9) / 2} y="217" text-anchor="middle" class="steplabel">{RUNNING} decode tokens · one per running request</text>
-            <rect x={24 + RUNNING * 1.9 + 3} y="200" width={chunk * 1.9} height="26" rx="5" fill="var(--accent)" opacity="0.9" />
-            <text x={24 + RUNNING * 1.9 + 3 + (chunk * 1.9) / 2} y="217" text-anchor="middle" class="steplabel">{chunk}-token prefill chunk · next in line</text>
-            <text x={24 + (RUNNING + chunk) * 1.9 + 12} y="217" class="tag">= 300 tokens · {fmt(tStep)}</text>
-            <text x="24" y="246" class="tag">every {fmt(tStep)}: {RUNNING} clients each get a token; one waiting client gets part of its prefill</text>
+            <text x={24 + RUNNING * 1.9 + 12} y="217" class="tag">{fmt(tStep)}</text>
+            <text x="24" y="246" class="tag">every {fmt(tStep)}: {RUNNING} clients each get a token; a waiting client starts its prefill only when one of them finishes</text>
           </g>
           <g in:fade={{ delay: 1500 }}>
             <text x="24" y="292" class="slab strong small">backpressure</text>
             <text x="24" y="312" class="tag">a burst of requests breaks nothing: {RUNNING} run, {WAITING} wait, everyone else holds an open connection and a place in line</text>
-            <text x="24" y="328" class="tag">clients feel a longer wait for the first token, not an error; past a configured queue length the server answers 429 instead</text>
+            <text x="24" y="328" class="tag">clients feel a longer wait for the first token, not an error; past --max-queued-requests the server answers 503 instead</text>
           </g>
           <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 2000 }}>SGLang: <tspan class="mono">--max-running-requests</tspan> · <tspan class="mono">--max-queued-requests</tspan> · the line is <tspan class="mono">Scheduler.waiting_queue</tspan></text>
         </g>

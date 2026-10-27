@@ -16,6 +16,10 @@ $$
 B_{\max} = \left\lfloor \frac{\text{HBM} - \text{weights}}{\text{context} \times 128\,\text{KB}} \right\rfloor
 $$
 
-Reserving the maximum length per request wastes whatever is never written, typically well over half, and fragments as requests finish. Paging with page size $p$ wastes at most $p - 1$ tokens per request and never fragments: a request's cache is a list of page numbers, and the attention kernel gathers through that list. In SGLang, `TokenToKVPool` is the page pool (page size 1 by default), `req_to_token` holds the page tables, and `retract_decode` is the eviction when nothing frees up. Sharing pages across requests is the next chapter.
+SGLang does not hand the cache all of $\text{HBM} - \text{weights}$: it sizes the pool to $f \cdot \text{HBM} - \text{weights}$, where $f$ is `--mem-fraction-static` (about 0.83 for this model on one H100), and keeps the rest for activations and CUDA graphs. That makes the pool about 55 GB here; the stage leaves $f$ out.
+
+Reserving the maximum length per request wastes whatever is never written, typically well over half, and fragments as requests finish. Paging with page size $p$ wastes at most $p - 1$ tokens per request and never fragments: a request's cache is a list of page numbers, and the attention kernel gathers through that list. In SGLang, `MHATokenToKVPool` holds the K and V, `TokenToKVPoolAllocator` hands out free slots (page size 1 by default), and `req_to_token` holds the page tables.
+
+Admission (`PrefillAdder`) counts more than the pages a step writes. It sets aside each running request's expected remaining output, $\min(\text{max\_new\_tokens} - \text{written},\ 4096)$ times a ratio that starts at 0.7 and decays to about 0.1 as requests finish early, and it charges a newcomer its prompt plus $\min(\text{max\_new\_tokens},\ 4096)$. Retraction is a separate check: when the running batch's own next step does not fit and nobody is finishing, `retract_decode` sends back the request with the fewest output tokens, to be prefilled again later. Sharing pages across requests is the next chapter.
 
 </details>

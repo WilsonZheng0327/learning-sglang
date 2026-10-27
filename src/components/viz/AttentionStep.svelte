@@ -3,6 +3,7 @@
   import { cubicOut } from 'svelte/easing';
   import StepControls from '../StepControls.svelte';
   import type { NavLink } from '../../chapters';
+  import { LAYERS, HEADS, KV_HEADS } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- Data --------------------------------------------------------------------------------
@@ -40,7 +41,7 @@
     { n: 6, rows: true, caption: `Every token multiplies its x by the same three matrices. All six of them, from scratch.` },
     { n: 6, rows: true, recompute: true, markNew: true, caption: `Look at the five old columns. Same x, same matrices, same vectors as last time. Nothing changed, we just computed them again.` },
     { n: 6, rows: true, markNew: true, attend: 5, weights: true, mix: true, caption: `Paris's query looks at all six keys and blends all six values. It needs every earlier key and value.` },
-    { n: 6, rows: true, markNew: true, unusedQ: true, caption: `The old queries? They'd produce outputs for positions we already predicted. Nothing reads them.` },
+    { n: 6, rows: true, markNew: true, unusedQ: true, caption: `The old queries? Their outputs only go on to rebuild the next layer's old x, and from it the same old k and v. Keep every layer's k and v, and nothing reads them.` },
     { n: 6, rows: true, markNew: true, tally: true, caption: `So each decode step, the new token needs every earlier k and v, and nothing else from the past. We recomputed them all, identically, in every head of every layer. Why not just keep them?` },
   ];
 
@@ -194,6 +195,10 @@
         </g>
       {/if}
 
+      {#if cur.recompute}
+        <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade>Llama also rotates q and k by each token's position (RoPE) · a token's position never changes, so its k is still identical</text>
+      {/if}
+
       <!-- Tally legend -->
       {#if cur.tally}
         {@const ly = LOW + 24}
@@ -206,7 +211,8 @@
           <text x="58" y={ly + 31} class="legend"><tspan class="strong">not needed</tspan>: the old queries. Each one was used once, on its own step.</text>
           <rect x="16" y={ly + 50} width="14" height="14" rx="3" fill="white" stroke="var(--gen)" stroke-width="2" />
           <text x="58" y={ly + 61} class="legend"><tspan class="strong">new</tspan>: q, k, v for the token that just arrived.</text>
-          <text x="16" y={ly + 100} class="legend" in:fade={{ delay: 700 }}>per head, per layer: {PROMPT_N * 2} vectors recomputed that were already known. A 32-layer, 32-head model does this 1024 times per step.</text>
+          <text x="16" y={ly + 100} class="legend" in:fade={{ delay: 700 }}>per head, per layer: {PROMPT_N * 2} known vectors recomputed · Llama-3-8B has {KV_HEADS} k, v heads × {LAYERS} layers: {KV_HEADS * LAYERS} times a step</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">a head is one set of the three matrices, drawn here once · Llama-3-8B's {HEADS} query heads share {KV_HEADS} sets of k, v, {HEADS / KV_HEADS} each (chapter 14)</text>
         </g>
       {/if}
     </svg>

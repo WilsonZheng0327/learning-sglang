@@ -57,17 +57,18 @@
 
   // ---- Script ------------------------------------------------------------------------------------------
   type Scene = 'recap' | 'lists' | 'why' | 'timeline' | 'compare' | 'loop';
-  interface Step { caption: string; scene: Scene; mode?: Mode }
+  interface Step { caption: string; scene: Scene; mode?: Mode; foot?: string }
+  const CHUNK_FOOT = `SGLang chunks by default (8,192 tokens on an H100) but runs a prompt's chunks back to back · this takes --prefill-decode-interval 1`;
   const M = Object.fromEntries((['prefill-first', 'batched', 'chunked', 'mixed'] as Mode[]).map((m) => [m, metrics(timeline(m))])) as Record<Mode, ReturnType<typeof metrics>>;
   const steps: Step[] = [
-    { scene: 'recap', caption: `Ch. 5 Step 9 ended here: a newcomer's prefill stretching everyone's decode step. Engines don't run the two together by default. They split the work into two kinds of batch and pick one each step. That's the scheduler.` },
+    { scene: 'recap', caption: `Ch. 5 Step 9 ended here: a newcomer's prefill stretching everyone's decode step. SGLang doesn't run the two together by default. They split the work into two kinds of batch and pick one each step. That's the scheduler.` },
     { scene: 'lists', caption: `The engine keeps two lists. <b>Waiting</b>: new requests that need a prefill. <b>Running</b>: conversations mid-answer that need one more token. Each step runs one batch, from one list.` },
-    { scene: 'why', caption: `Same model, two shapes. Prefill: a few sequences, hundreds of tokens each, ragged. Decode: many sequences, one token each, the same shape every step. Two shapes, two batches; chapters ${CH_DISAGG} and ${CH_CUDA} show what that unlocks.` },
-    { scene: 'timeline', mode: 'prefill-first', caption: `The default policy: if anyone is waiting, run a prefill batch first. The newcomer's first token comes in ${fmt(M['prefill-first'].ttft)}, but nobody decodes during those ${fmt(M['prefill-first'].ttft)}. A 32k-token prompt would freeze everyone for half a second.` },
+    { scene: 'why', caption: `Same model, two shapes. Prefill: a few sequences, hundreds of tokens each, ragged. Decode: many sequences, one token each, every step. Two shapes, two batches; chapters ${CH_DISAGG} and ${CH_CUDA} show what that unlocks.` },
+    { scene: 'timeline', mode: 'prefill-first', caption: `The default policy: if anyone is waiting, run a prefill batch first. The newcomer's first token comes in ${fmt(M['prefill-first'].ttft)}, but nobody decodes during those ${fmt(M['prefill-first'].ttft)}. An 8k-token prompt, the longest Llama-3-8B takes, freezes everyone for ${fmt(stepMs(8192))}.` },
     { scene: 'timeline', mode: 'batched', caption: `It gets worse. Waiting prompts are batched into one prefill step, efficient for the GPU and awful for the decoders: three prompts, ${waitingTotal.toLocaleString()} tokens, one ${fmt(M.batched.ttft)} step. Every running conversation freezes for all of it.` },
-    { scene: 'timeline', mode: 'chunked', caption: `Cap the prefill batch. Split prompts into chunks and alternate: a chunk, a decode step, a chunk, a decode step. The freeze is now one chunk long, whatever the prompt's size. The first token arrives a little later.` },
+    { scene: 'timeline', mode: 'chunked', caption: `Cap the prefill batch. Split prompts into chunks and alternate: a chunk, a decode step, a chunk, a decode step. The freeze is now one chunk long, whatever the prompt's size. The first token arrives a little later.`, foot: CHUNK_FOOT },
     { scene: 'timeline', mode: 'mixed', caption: `Once prefill comes in chunks, a chunk is small enough to ride inside a decode step, on compute the decodes leave idle. No freeze at all, first token in ${fmt(M.mixed.ttft)}. Sarathi-Serve's idea, vLLM v1's default, SGLang's mixed-chunk option.` },
-    { scene: 'compare', caption: `Same GPU, same prompt, three policies. Prefill-first: fastest first token, worst freeze. Chunked: a bounded freeze. Mixed: none. The chunk size is the knob between the two clocks, and it belongs to the scheduler, not the model.` },
+    { scene: 'compare', caption: `Same GPU, same prompt, three policies. Prefill-first: fastest first token, worst freeze. Chunked: a bounded freeze. Mixed: none. The chunk size is the knob between the two clocks, and it belongs to the scheduler, not the model.`, foot: CHUNK_FOOT },
     { scene: 'loop', caption: `So each step the scheduler asks: anyone waiting, and room in the cache? Then a prefill batch, in policy order, capped by the chunk size. Otherwise the decode batch. Room in the cache is the next question, and it's a whole chapter.` },
   ];
 
@@ -168,7 +169,7 @@
             <text x="642" y="186" text-anchor="middle" class="tag strong">or</text>
             <text x="642" y="200" text-anchor="middle" class="tag">decode batch</text>
           </g>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1800 }}>the default in SGLang and vLLM: each step is one kind of batch. Mixing comes back later, on purpose and bounded.</text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1800 }}>SGLang's default: each step is one kind of batch (vLLM v1 mixes by default) · mixing comes back in step 7, on purpose and bounded</text>
         </g>
       {/if}
 
@@ -198,9 +199,9 @@
             {/each}
           {/each}
           <text x="382" y="204" class="slab">many sequences · one token each</text>
-          <text x="382" y="222" class="slab">always the same shape</text>
+          <text x="382" y="222" class="slab">only the batch size changes</text>
           <text x="382" y="254" class="tag">a different attention kernel · memory-bound</text>
-          <text x="382" y="274" class="tag">same shape every step → CUDA graph replay, chapter {CH_CUDA}</text>
+          <text x="382" y="274" class="tag">one recording per batch size → CUDA graph replay, chapter {CH_CUDA}</text>
 
           <g in:fade={{ delay: 900 }}>
             <text x="360" y="330" text-anchor="middle" class="legend">two shapes → two batches → two fast paths</text>
@@ -344,7 +345,7 @@
             <text x="416" y="204" class="slab strong small">the decode batch</text>
             <text x="416" y="226" class="tag">everyone running, one token each</text>
             <text x="416" y="241" class="tag">finished sequences leave, freeing their cache</text>
-            <text x="416" y="262" class="tag">fixed shape → CUDA graph replay, chapter {CH_CUDA}</text>
+            <text x="416" y="262" class="tag">a recording per batch size → CUDA graph replay, chapter {CH_CUDA}</text>
           </g>
           <g in:fade={{ delay: 1000 }}>
             <path d="M 180 276 V 320 H 218" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#arrowhead)" />
@@ -353,8 +354,12 @@
             <text x="360" y="325" text-anchor="middle" class="steplabel big">one forward pass · then back to the top</text>
             <path d="M 360 340 V 354 H 702 V 108 H 496" fill="none" stroke="#b8b4aa" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
           </g>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1400 }}>SGLang: <tspan class="mono">schedule_policy</tspan>, <tspan class="mono">chunked_prefill_size</tspan>, <tspan class="mono">enable_mixed_chunk</tspan> · this loop is <tspan class="mono">Scheduler.get_next_batch_to_run()</tspan></text>
+          <text x={W / 2} y={H - 26} text-anchor="middle" class="footnote" in:fade={{ delay: 1400 }}>SGLang: <tspan class="mono">schedule_policy</tspan>, <tspan class="mono">chunked_prefill_size</tspan>, <tspan class="mono">prefill_decode_interval</tspan>, <tspan class="mono">enable_mixed_chunk</tspan></text>
+          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 1400 }}>this loop is <tspan class="mono">Scheduler.get_next_batch_to_run()</tspan></text>
         </g>
+      {/if}
+      {#if cur.foot}
+        {#key cur.foot}<text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade>{cur.foot}</text>{/key}
       {/if}
     </svg>
   </div>

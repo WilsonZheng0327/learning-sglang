@@ -28,17 +28,19 @@
 
   // ---- Script -------------------------------------------------------------------------------
   type Scene = 'batch' | 'ragged' | 'static' | 'grid';
-  interface Step { caption: string; scene: Scene; B?: number; mode?: 'static' | 'continuous'; highlight?: boolean }
+  interface Step { caption: string; scene: Scene; B?: number; mode?: 'static' | 'continuous'; highlight?: boolean; foot?: string }
+  const KV_FOOT = `counts only the weight read · each user's own KV cache is read too (Ch. 4 Step 6), and that grows with every user added (chapter 14)`;
+  const MIX_FOOT = `this is Orca's design (2022) · SGLang by default runs a prefill as a step of its own while the others wait (chapter 6)`;
   const steps: Step[] = [
     { scene: 'batch', B: 1, caption: `One user. One token per step, ${fmt(tMem)} per step, and the GPU mostly waiting.` },
-    { scene: 'batch', B: 2, caption: `A second user's token rides the same read. Two tokens per step, still ${fmt(tMem)}.` },
-    { scene: 'batch', B: 64, caption: `Keep adding. 64 users, 64 tokens per step, still ${fmt(stepMs(64))}. Throughput went up 64×, and nobody got slower.` },
-    { scene: 'batch', B: 512, caption: `Past the balance point the math outlasts the read and the step stretches. Around ${balance} tokens per step is the sweet spot for this GPU and model.` },
+    { scene: 'batch', B: 2, caption: `A second user's token rides the same read. Two tokens per step, still ${fmt(tMem)}.`, foot: KV_FOOT },
+    { scene: 'batch', B: 64, caption: `Keep adding. 64 users, 64 tokens per step, still ${fmt(stepMs(64))}. Throughput went up 64×, and nobody got slower.`, foot: KV_FOOT },
+    { scene: 'batch', B: 512, caption: `Past the balance point the math outlasts the read and the step stretches. Around ${balance} tokens per step is the sweet spot for this GPU and model.`, foot: KV_FOOT },
     { scene: 'ragged', caption: `${balance} tokens per step means ${balance} requests in flight. Real requests don't cooperate: they arrive whenever, prompts run from a line to a document, and answers from a word to a page.` },
     { scene: 'static', caption: `The simplest way to batch: take the next six requests, prefill them together, decode them in lockstep until the last one finishes, then take the next six. Membership never changes while the batch runs. That's what <b>static</b> means.` },
     { scene: 'grid', mode: 'static', caption: `Slots go idle as short answers finish, and request 7 waits until the longest answer is done. The two prefill columns are drawn short; they take many decode steps' worth of time.` },
-    { scene: 'grid', mode: 'continuous', caption: `<b>Continuous batching</b>: rebuild the batch every step. When a sequence finishes, the next request takes its slot on the very next step. Its prefill runs in the same forward pass as everyone else's decode token.` },
-    { scene: 'grid', mode: 'continuous', highlight: true, caption: `More tokens, and no batch boundaries. But every wide column stretches everyone's decode step to the length of one prompt's math. Can a newcomer join without slowing everyone else down? That's the scheduler's problem.` },
+    { scene: 'grid', mode: 'continuous', caption: `<b>Continuous batching</b>: rebuild the batch every step. When a sequence finishes, the next request takes its slot on the very next step. Its prefill runs in the same forward pass as everyone else's decode token.`, foot: MIX_FOOT },
+    { scene: 'grid', mode: 'continuous', highlight: true, caption: `But a prefill column stretches everyone's step: a 2,000-token prompt makes it ${fmt(tComp(2000))}, not ${fmt(tMem)}. Can a newcomer join without slowing everyone else down? That's the scheduler's problem.`, foot: MIX_FOOT },
   ];
 
   let step = $state(0);
@@ -142,7 +144,7 @@
           {#if B > balance}
             <text x="40" y="332" class="legend" in:fade>{B} tokens of math take {fmt(tComp(B))}, longer than the {fmt(tMem)} read. Every extra token now costs time.</text>
           {:else if B > 1}
-            <text x="40" y="332" class="legend" in:fade>{B} tokens share one {fmt(tMem)} read. Per-user latency: unchanged.</text>
+            <text x="40" y="332" class="legend" in:fade>{B} tokens share one {fmt(tMem)} read of the weights. Per-user latency: unchanged.</text>
           {/if}
         </g>
       {/if}
@@ -253,9 +255,9 @@
               {/if}
             {/each}
           {/each}
-          <rect x={G.x} y={ly - 10} width="12" height="12" rx="2" fill={cellColor.prefill} /><text x={G.x + 18} y={ly} class="tag">prefill step ⫽ drawn short, really 5–40× a decode step</text>
-          <rect x={G.x + 290} y={ly - 10} width="12" height="12" rx="2" fill={cellColor.decode} /><text x={G.x + 308} y={ly} class="tag">decode step, one token</text>
-          <rect x={G.x + 440} y={ly - 10} width="12" height="12" rx="2" fill={cellColor.idle} /><text x={G.x + 458} y={ly} class="tag">idle slot</text>
+          <rect x={G.x} y={ly - 10} width="12" height="12" rx="2" fill={cellColor.prefill} /><text x={G.x + 18} y={ly} class="tag">prefill step ⫽ drawn short · 2,000 tokens: {Math.round(tComp(2000) / tMem)}× a decode step</text>
+          <rect x={G.x + 316} y={ly - 10} width="12" height="12" rx="2" fill={cellColor.decode} /><text x={G.x + 334} y={ly} class="tag">decode step, one token</text>
+          <rect x={G.x + 466} y={ly - 10} width="12" height="12" rx="2" fill={cellColor.idle} /><text x={G.x + 484} y={ly} class="tag">idle slot</text>
           {#if cur.highlight}
             <g in:fade>
               <rect x={G.x + 0.5} y={ly + 8.5} width="35" height="11" rx="2" fill="var(--gen-soft)" stroke="var(--gen)" stroke-opacity="0.5" /><rect x={G.x + 28} y={ly + 8} width="8" height="12" rx="2" fill={cellColor.decode} />
@@ -270,10 +272,13 @@
             {:else if cur.mode === 'continuous'}
               <text x={G.x - 10} y={sy + 22} class="pt">·</text><text x={G.x} y={sy + 22} class="legend">same {T} steps: {Math.round(((sim.tokens - sims.static.tokens) / sims.static.tokens) * 100)}% more tokens than static, and request 7 started at step {sims.continuous.grid.flat().length ? requests.reduce((m, r) => Math.min(m, r.answer), 99) + 1 : 0} instead of {batchEnd}.</text>
             {:else}
-              <text x={G.x - 10} y={sy + 22} class="pt">·</text><text x={G.x} y={sy + 22} class="legend">request 7 can't start until request 3 finishes at step {batchEnd}. Slot 5 sat idle for {batchEnd - requests[4].answer - 1} of those steps.</text>
+              <text x={G.x - 10} y={sy + 22} class="pt">·</text><text x={G.x} y={sy + 22} class="legend">request 7 can't start until step {batchEnd}, after request 3 finishes at step {batchEnd - 1}. Slot 5 sat idle for {batchEnd - requests[4].answer - 1} of those steps.</text>
             {/if}
           </g>
         </g>
+      {/if}
+      {#if cur.foot}
+        {#key cur.foot}<text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade>{cur.foot}</text>{/key}
       {/if}
     </svg>
   </div>

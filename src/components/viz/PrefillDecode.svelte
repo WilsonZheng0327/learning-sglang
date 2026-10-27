@@ -2,7 +2,7 @@
   import { fade, fly } from 'svelte/transition';
   import StepControls from '../StepControls.svelte';
   import type { NavLink } from '../../chapters';
-  import { W_GB, BW, TFLOPS as FLOPS, GFLOP_PER_TOKEN, KB_PER_TOKEN as KB_PER_CTX_TOKEN } from '../../numbers';
+  import { W_GB, BW, TFLOPS as FLOPS, GFLOP_PER_TOKEN, KB_PER_TOKEN as KB_PER_CTX_TOKEN, VOCAB, D_MODEL, BYTES } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
 
   // ---- Numbers: Llama-3-8B in bf16 on one H100 ---------------------------------------------
@@ -12,19 +12,22 @@
   const fmt = (ms: number) => (ms < 0.1 ? ms.toFixed(3) : ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms';
   const balanceExact = tMem(0) / tComp(1);                       // = FLOP/s ÷ bytes/s ≈ 295
   const balance = Math.round(balanceExact / 50) * 50;            // ≈300, rounded for the prose
+  const embedGB = (VOCAB * D_MODEL * BYTES) / 1e9;               // the input embedding table: looked up, not streamed
 
   // ---- Script -------------------------------------------------------------------------------
   type Scene = 'intro' | 'anatomy' | 'chart' | 'timeline';
   interface Step {
     caption: string; scene: Scene; n?: number; ctx?: number;
-    focus?: 'weights' | 'tokens' | 'idle'; bars?: boolean; roofline?: boolean; cache?: boolean;
+    focus?: 'weights' | 'tokens' | 'idle'; bars?: boolean; roofline?: boolean; cache?: boolean; foot?: string;
   }
   const steps: Step[] = [
     { scene: 'intro', caption: `The first step has a name: <b>prefill</b>. Every step after: <b>decode</b>. Same model, same weights, very different work.` },
-    { scene: 'anatomy', n: 5, focus: 'weights', caption: `Every step, the GPU streams the whole model out of memory and through its compute units. ${W_GB} GB for an 8B model, however many tokens are in the step.` },
+    { scene: 'anatomy', n: 5, focus: 'weights', caption: `Every step, the GPU streams the whole model out of memory and through its compute units. ${W_GB} GB for an 8B model, however many tokens are in the step.`,
+      foot: `${W_GB} GB is all 8B parameters · the ${embedGB.toFixed(0)} GB embedding table is only looked up, so a step streams about ${(W_GB - embedGB).toFixed(0)} GB` },
     { scene: 'anatomy', n: 5, focus: 'tokens', caption: `Prefill: five tokens ride that one read. The weights are loaded once and used five times, and all five tokens' math runs in parallel.` },
     { scene: 'anatomy', n: 1, focus: 'tokens', caption: `Decode: one token. The same ${W_GB} GB read, one token's worth of math.` },
-    { scene: 'anatomy', n: 1, bars: true, caption: `On an H100, reading ${W_GB} GB takes about ${fmt(tMem(0))}. One token's math takes ${fmt(tComp(1))}. The step takes ${fmt(tMem(0))}, and the compute units sit idle for most of it.` },
+    { scene: 'anatomy', n: 1, bars: true, caption: `On an H100 SXM, reading ${W_GB} GB takes about ${fmt(tMem(0))}. One token's math takes ${fmt(tComp(1))}. The step takes ${fmt(tMem(0))}, and the compute units sit idle for most of it.`,
+      foot: `datasheet peaks for the H100 SXM, ${BW} TB/s and ${FLOPS} TFLOP/s · real kernels reach less of both, so real steps take longer` },
     { scene: 'anatomy', n: 1, bars: true, cache: true, ctx: 8192, caption: `Decode also drags the KV cache through. Under a megabyte at seven tokens, another 1 GB at 8k, on every single step. Longer context, slower tokens.` },
     { scene: 'anatomy', n: 2000, bars: true, caption: `Prefill on a 2000-token prompt flips it: ${fmt(tComp(2000))} of math against the same ${fmt(tMem(0))} of reading. Prefill is compute-bound, decode is memory-bound.` },
     { scene: 'chart', n: 2000, roofline: true, caption: `The lines cross where the math takes as long as the read: the H100's ${FLOPS} TFLOP/s divided by its ${BW} TB/s, about ${balance} tokens per step. Below that the GPU is a memory pump. Above it, a calculator.` },
@@ -68,7 +71,8 @@
   const TL = { x: 90, y: 150, w: 560, ms: 90 };
   const tlPx = (ms: number) => TL.x + (ms / TL.ms) * TL.w;
   const ttft = tComp(2000);
-  const decodeTicks = Math.floor((TL.ms - ttft) / tMem(0));
+  const tick = tMem(2000);                                       // a decode step: the weights and the prompt's cache
+  const decodeTicks = Math.floor((TL.ms - ttft) / tick);
 </script>
 
 <figure class="viz">
@@ -202,6 +206,10 @@
         </g>
       {/if}
 
+      {#if cur.foot}
+        {#key cur.foot}<text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade>{cur.foot}</text>{/key}
+      {/if}
+
       <!-- Chat timeline -->
       {#if cur.scene === 'timeline'}
         <g transition:fade={{ duration: 250 }}>
@@ -214,12 +222,12 @@
           <text x={(tlPx(0) + tlPx(ttft)) / 2} y={TL.y + 18} text-anchor="middle" class="steplabel">prefill</text>
           <text x={(tlPx(0) + tlPx(ttft)) / 2} y={TL.y + 31} text-anchor="middle" class="steplabel small">{fmt(ttft)} of math</text>
           {#each Array(decodeTicks) as _, i}
-            {@const x0 = tlPx(ttft + i * tMem(0))}
-            <rect x={x0 + 1} y={TL.y} width={tlPx(tMem(0)) - tlPx(0) - 2} height="40" rx="4" fill="var(--gen)" opacity="0.85" in:fly={{ y: -10, delay: 400 + i * 120, duration: 250 }} />
+            {@const x0 = tlPx(ttft + i * tick)}
+            <rect x={x0 + 1} y={TL.y} width={tlPx(tick) - tlPx(0) - 2} height="40" rx="4" fill="var(--gen)" opacity="0.85" in:fly={{ y: -10, delay: 400 + i * 120, duration: 250 }} />
           {/each}
           <line x1={tlPx(ttft)} y1={TL.y - 14} x2={tlPx(ttft)} y2={TL.y + 60} stroke="var(--fg)" stroke-dasharray="3 3" />
           <text x={tlPx(ttft) + 6} y={TL.y - 6} class="tag strong" in:fade={{ delay: 500 }}>first token</text>
-          <text x={tlPx(ttft + 2 * tMem(0))} y={TL.y + 100} class="legend" in:fade={{ delay: 1400 }}>then one token every <tspan class="strong">{fmt(tMem(0))}</tspan>, each one a full read of the weights</text>
+          <text x={tlPx(ttft) + 6} y={TL.y + 100} class="legend" in:fade={{ delay: 1400 }}>then a token every <tspan class="strong">{fmt(tick)}</tspan>: the weights and the prompt's cache, read again</text>
         </g>
       {/if}
     </svg>

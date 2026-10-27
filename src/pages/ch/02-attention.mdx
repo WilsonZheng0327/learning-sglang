@@ -13,9 +13,9 @@ import { neighbors } from '../../chapters';
 For one head, with $Q = XW_Q$, $K = XW_K$, $V = XW_V$:
 
 $$
-\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}} + M\right)V
 $$
 
-Row $i$ of the result only uses row $i$ of $Q$, but every row $\le i$ of $K$ and $V$. That asymmetry is the whole next chapter.
+$M$ is the causal mask from step 7: $M_{ij} = -\infty$ for $j > i$ and $0$ otherwise, so softmax gives a later key zero weight. Row $i$ of the result only uses row $i$ of $Q$, but every row $\le i$ of $K$ and $V$. That asymmetry is the whole next chapter.
 
 </details>

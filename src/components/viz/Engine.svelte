@@ -11,13 +11,13 @@
   type Scene = 'process' | 'overlap' | 'future' | 'map';
   interface Step { caption: string; scene: Scene; v?: number }
   const steps: Step[] = [
-    { scene: 'process', v: 0, caption: `Inside process 2. Two lists of <b>Req</b> objects, waiting and running. The page pool and the radix tree from Ch. 7 Step 4 and Ch. 8 Step 4. A model runner that owns the GPU. And one loop, top to bottom, about ${Math.round(1000 / Number(tStep.toFixed(1)))} times a second.` },
-    { scene: 'process', v: 1, caption: `Top of the loop: drain the inbox. Each message becomes a Req: its ids and sampling params, a prefix match against the tree (3 of its 5 tokens are already cached), and a place at the end of the waiting list. Ours arrives now.` },
-    { scene: 'process', v: 2, caption: `Ch. 6 Step 9's decision. Anyone waiting, and room in the pool for what they'll write? Ours needs 2 pages: its 2 uncached prompt tokens. Room enough, so it makes this step's prefill batch.` },
-    { scene: 'process', v: 3, caption: `A batch becomes tensors: every token id in one flat array, each request's positions, and each request's page table so attention can find its cache. Pages for the tokens about to be written are allocated here.` },
+    { scene: 'process', v: 0, caption: `Inside process 2. Two lists of <b>Req</b> objects, waiting and running. The page pool and the radix tree from Ch. 7 Step 4 and Ch. 8 Step 4. A model runner that owns the GPU. And one loop, about ${Math.round(1000 / Number(tStep.toFixed(1)))} times a second while it has work.` },
+    { scene: 'process', v: 1, caption: `Top of the loop: drain the inbox. Each message becomes a Req, with its ids and sampling params, and takes a place at the end of the waiting list. Ours arrives now.` },
+    { scene: 'process', v: 2, caption: `Ch. 6 Step 9's decision. Matched against the tree, 3 of our 5 tokens are cached. Is there room for the other 2, and for the answer to come (Ch. 7 Step 7)? Yes, so it joins this step's prefill batch.` },
+    { scene: 'process', v: 3, caption: `A batch becomes tensors: every token id in one flat array, each request's positions, and each request's page table so attention can find its cache. Its 2 pages were taken as the batch was chosen.` },
     { scene: 'process', v: 4, caption: `The model runner runs chapters 2 to 4: embeddings, 32 layers of attention over the paged cache and MLP, logits for the last position of every request. New k and v land in the pages just allocated.` },
-    { scene: 'process', v: 5, caption: `Logits become one token per request: temperature, top-p, penalties, whatever each asked for. The id is appended to its Req, and the Req checks itself: EOS? max tokens? finished?` },
-    { scene: 'process', v: 6, caption: `Bookkeeping. Finished Reqs leave and hand their pages to the tree. The prefill batch joins the running batch. One message with everyone's new token goes out to the detokenizer. Back to the top.` },
+    { scene: 'process', v: 5, caption: `Logits become one token per request: temperature, top-p, penalties, whatever each asked for. Our Req's is 12366, " Paris".` },
+    { scene: 'process', v: 6, caption: `Bookkeeping. Each Req appends its id and checks itself: EOS? max tokens? Finished Reqs hand their pages to the tree. One message with every new token goes to the detokenizer. Back to the top.` },
     { scene: 'overlap', caption: `<b>Overlap scheduling.</b> Kernel launches return at once: right after launching step t, the CPU plans t+1, then processes t's results while the GPU runs t+1. SGLang's event_loop_overlap; vLLM v1 calls it async scheduling.` },
     { scene: 'future', caption: `The catch: step t+1's decode input is step t's sampled token, and the CPU planned t+1 before that token existed. So the plan carries a placeholder, a slot in a GPU buffer. Step t's sampler fills it; step t+1's first kernel reads it. No round trip.` },
     { scene: 'map', caption: `The whole site as a file tree. Every chapter is a module in sglang/srt, and the loop you just watched is scheduler.py. Next: how the model runner launches a thousand kernels as one.` },
@@ -39,7 +39,7 @@
   const pipe = [
     { k: 'recv', t: 'recv_requests', s: 'inbox → Req objects', y: 64 },
     { k: 'schedule', t: 'get_next_batch_to_run', s: 'prefill or decode batch', y: 118 },
-    { k: 'prepare', t: 'ScheduleBatch → tensors', s: 'ids · positions · pages', y: 172 },
+    { k: 'prepare', t: 'ScheduleBatch → ForwardBatch', s: 'ids · positions · pages', y: 172 },
     { k: 'forward', t: 'ModelRunner.forward', s: 'embed → 32 layers → logits', y: 226 },
     { k: 'sample', t: 'Sampler', s: 'logits → tokens', y: 280 },
     { k: 'results', t: 'process_batch_result', s: 'append · finish · send', y: 334 },
@@ -49,7 +49,7 @@
   // side panels lit up by each stage
   const lit = (name: string) => ({
     inbox: v === 1, waiting: v === 1 || v === 2, running: v === 2 || v === 6, outbox: v === 6,
-    tree: v === 1 || v === 6, pool: v === 2 || v === 3 || v === 4, gpu: v === 4 || v === 5,
+    tree: v === 2 || v === 6, pool: v === 2 || v === 3 || v === 4, gpu: v === 4 || v === 5,
   } as Record<string, boolean>)[name];
   // where our Req sits at each stage
   const reqPos = $derived([
@@ -130,7 +130,7 @@
           <circle cx={R.x + 62} cy="118" r="6" fill="var(--accent-soft)" stroke="var(--accent)" />
           <circle cx={R.x + 37} cy="140" r="6" fill="var(--accent-soft)" stroke="var(--accent)" /><circle cx={R.x + 87} cy="140" r="6" fill="var(--accent-soft)" stroke="var(--accent)" />
           <line x1={R.x + 58} y1="123" x2={R.x + 41} y2="135" stroke="var(--faint)" /><line x1={R.x + 66} y1="123" x2={R.x + 83} y2="135" stroke="var(--faint)" />
-          {#if v === 1}
+          {#if v === 2}
             <g in:fade>
               <text x={R.x + 108} y="112" class="tag" fill="var(--accent)">match 3 of 5</text>
               <text x={R.x + 108} y="126" class="tag" fill="var(--accent)">→ 2 to prefill</text>
@@ -145,15 +145,15 @@
           {/if}
 
           <rect x={R.x} y="164" width={R.w} height="90" rx="8" fill="#fbfaf7" stroke={lit('pool') ? '#0891b2' : 'var(--line)'} stroke-width={lit('pool') ? 2 : 1} />
-          <text x={R.x + 10} y="182" class="tag strong">TokenToKVPool</text>
+          <text x={R.x + 10} y="182" class="tag strong">KV pool</text>
           <text x={R.x + 10} y="196" class="tag">pages · Ch. 7 Step 4</text>
           {#each Array(24) as _, i}
             {@const own = [1, 3, 4, 6, 9, 10, 13, 15, 18, 20, 21].includes(i)}
-            {@const mine = v >= 3 && [7, 12].includes(i)}
+            {@const mine = v >= 2 && [7, 12].includes(i)}
             <rect x={R.x + 10 + (i % 12) * 14} y={206 + Math.floor(i / 12) * 14} width="11" height="11" rx="2" fill={mine ? 'var(--accent)' : own ? '#0891b2' : 'white'} stroke={own || mine ? 'none' : 'var(--line)'} opacity={own ? 0.5 : 1} />
           {/each}
-          {#if v === 2}<text x={R.x + 10} y="246" class="tag" fill="#0891b2" in:fade>room? 13 free ≥ 2 needed ✓</text>{/if}
-          {#if v === 3}<text x={R.x + 10} y="246" class="tag" fill="var(--accent)" in:fade>2 pages allocated</text>{/if}
+          {#if v === 2}<text x={R.x + 10} y="246" class="tag" fill="var(--accent)" in:fade>room ✓ · 2 pages taken now</text>{/if}
+          {#if v === 3}<text x={R.x + 10} y="246" class="tag" fill="var(--accent)" in:fade>its 2 pages, in its page table</text>{/if}
           {#if v === 4}<text x={R.x + 10} y="246" class="tag" fill="#0891b2" in:fade>read all pages · write 2 new</text>{/if}
 
           <rect x={R.x} y="264" width={R.w} height="114" rx="8" fill="#fbfaf7" stroke={lit('gpu') ? 'var(--gen)' : 'var(--line)'} stroke-width={lit('gpu') ? 2 : 1} />
@@ -161,7 +161,7 @@
           <text x={R.x + 10} y="296" class="tag">weights + kernels · chapters 2–4</text>
           <rect x={R.x + 10} y="306" width={R.w - 20} height="20" rx="4" fill="var(--accent)" opacity="0.9" />
           <text x={R.x + R.w / 2} y="320" text-anchor="middle" class="steplabel">forward pass · {fmt(tStep)}</text>
-          {#if v === 4}<text x={R.x + 10} y="362" class="tag" fill="var(--gen)" in:fade>300 tokens in → logits out</text>{/if}
+          {#if v === 4}<text x={R.x + 10} y="362" class="tag" fill="var(--gen)" in:fade>2 new tokens (+ other prefills) in</text>{/if}
           {#if v === 5}<text x={R.x + 10} y="346" class="tag" fill="var(--gen)" in:fade>argmax / sample per request</text>{/if}
           {#if v === 5}<text x={R.x + 10} y="362" class="tag" in:fade>our Req: 12366 → " Paris"</text>{/if}
 
@@ -218,11 +218,12 @@
           <line x1={OL.x} y1="294" x2={OL.x + 21 * OL.pxPerMs} y2="294" stroke="var(--line)" />
           {#each [0, 5, 10, 15, 20] as ms}<text x={OL.x + ms * OL.pxPerMs} y="308" text-anchor="middle" class="tag">{ms} ms</text>{/each}
 
-          <rect x={OL.x} y="330" width="12" height="12" rx="2" fill="var(--accent)" opacity="0.85" /><text x={OL.x + 18} y="340" class="tag">plan: recv · schedule · flatten · launch kernels</text>
-          <rect x={OL.x + 290} y="330" width="12" height="12" rx="2" fill="#0891b2" opacity="0.9" /><text x={OL.x + 308} y="340" class="tag">results: append tokens · finish Reqs · send</text>
+          <rect x={OL.x} y="318" width="12" height="12" rx="2" fill="var(--accent)" opacity="0.85" /><text x={OL.x + 18} y="328" class="tag">plan: recv · schedule · flatten · launch kernels</text>
+          <rect x={OL.x + 290} y="318" width="12" height="12" rx="2" fill="#0891b2" opacity="0.9" /><text x={OL.x + 308} y="328" class="tag">results: append tokens · finish Reqs · send</text>
           <g in:fade={{ delay: 1400 }}>
-            <text x="16" y="362" class="legend">the GPU lane is solid: {fmt(plan + res)} of Python per step comes off the critical path,</text>
-            <text x="16" y="380" class="legend">about {Math.round(((plan + res) / (plan + res + g)) * 100)}% more tokens per second on the same GPU</text>
+            <text x="16" y="348" class="legend">the GPU lane is solid: {fmt(plan + res)} of Python per step comes off the critical path,</text>
+            <text x="16" y="366" class="legend">a step of {fmt(plan + tStep + res)} becomes {fmt(tStep)}: about {Math.round(((plan + tStep + res) / tStep - 1) * 100)}% more tokens per second on the same GPU</text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">the CPU times are illustrative · launching a step's kernels inside the plan assumes chapter {CH_CUDA}'s CUDA graphs</text>
           </g>
         </g>
       {/if}
@@ -231,9 +232,9 @@
         <g transition:fade={{ duration: 250 }}>
           <text x="16" y="52" class="rowlabel">step t+1 is planned before step t has sampled · the placeholder</text>
           {#each [
-            { x: 30, y: 90, w: 200, h: 96, c: 'var(--accent)', title: 'CPU · plan step t+1', lines: ['decode input for our Req:', 'not a token id yet, but', 'future_slot[7]'] },
-            { x: 260, y: 90, w: 200, h: 96, c: 'var(--gen)', title: 'GPU · step t · sampler', lines: ['samples 12366 for our Req', 'writes it straight into', 'future_slot[7] = 12366'] },
-            { x: 490, y: 90, w: 200, h: 96, c: 'var(--gen)', title: 'GPU · step t+1 · first kernel', lines: ['reads future_slot[7] → 12366', 'looks up its embedding', 'the step runs as normal'] },
+            { x: 30, y: 90, w: 200, h: 96, c: 'var(--accent)', title: 'CPU · plan step t+1', lines: ['decode input for our Req:', 'not a token id yet, but', 'buf[7]'] },
+            { x: 260, y: 90, w: 200, h: 96, c: 'var(--gen)', title: 'GPU · step t · sampler', lines: ['samples 12366 for our Req', 'writes it straight into', 'buf[7] = 12366'] },
+            { x: 490, y: 90, w: 200, h: 96, c: 'var(--gen)', title: 'GPU · step t+1 · first kernel', lines: ['reads buf[7] → 12366', 'looks up its embedding', 'the step runs as normal'] },
           ] as b, i}
             <g in:fly={{ y: 8, delay: i * 350, duration: 300 }}>
               <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="12" fill="#fbfaf7" stroke={b.c} />
@@ -245,7 +246,7 @@
           <path d="M 462 138 H 484" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#en-grey)" />
           <!-- the buffer -->
           <g in:fade={{ delay: 1100 }}>
-            <text x="30" y="226" class="rowlabel">future_token_ids · a small buffer in GPU memory</text>
+            <text x="30" y="226" class="rowlabel">buf · a small buffer in GPU memory, one slot per request</text>
             {#each Array(12) as _, k}
               <rect x={30 + k * 40} y="236" width="36" height="26" rx="4" fill={k === 7 ? 'var(--gen-soft)' : 'white'} stroke={k === 7 ? 'var(--gen)' : 'var(--line)'} />
               <text x={48 + k * 40} y="253" text-anchor="middle" class="mono">{k === 7 ? '12366' : k < 7 ? '·' : ''}</text>
@@ -253,10 +254,10 @@
             {/each}
           </g>
           <g in:fade={{ delay: 1700 }}>
-            <text x="20" y="316" class="pt">·</text><text x="30" y="316" class="legend">the CPU never waits for the token and never copies it back; it hands out slot numbers and lets the GPU fill and read them</text>
+            <text x="20" y="316" class="pt">·</text><text x="30" y="316" class="legend">the CPU never waits for the token and never copies it back; each request's slot is the same every step</text>
             <text x="20" y="338" class="pt">·</text><text x="30" y="338" class="legend">only the bookkeeping waits for a copy: appending the id to the Req and checking for EOS,</text>
             <text x="30" y="356" class="legend">and that happens in the results phase, one step behind the GPU</text>
-            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang: <tspan class="mono">TpModelWorkerClient</tspan> · <tspan class="mono">future_token_ids_map</tspan> · <tspan class="mono">resolve_future_token_ids</tspan></text>
+            <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote">SGLang: buf is <tspan class="mono">FutureMap.output_tokens_buf</tspan> · read by <tspan class="mono">resolve_forward_inputs</tspan> (managers/overlap_utils.py)</text>
           </g>
         </g>
       {/if}
@@ -271,17 +272,17 @@
             ['managers/schedule_batch.py', 'Req and ScheduleBatch', '10'],
             ['managers/schedule_policy.py', 'FCFS, LPM, the chunk cap', '6 · 8'],
             ['managers/detokenizer_manager.py', 'ids → text · process 3', '9'],
-            ['mem_cache/memory_pool.py', 'the page pool', '7'],
+            ['mem_cache/memory_pool.py', 'KV pages and page tables', '7'],
             ['mem_cache/radix_cache.py', 'the tree', '8'],
             ['model_executor/model_runner.py', 'the forward pass', '4 · 10'],
-            ['model_executor/cuda_graph_runner.py', 'a thousand kernels as one', String(CH_CUDA)],
+            ['model_executor/runner/decode_cuda_graph_runner.py', 'a thousand kernels as one', String(CH_CUDA)],
             ['layers/attention/', 'paged attention kernels', '2 · 3'],
             ['layers/sampler.py', 'logits → tokens', '10'],
             ['disaggregation/', 'prefill and decode apart', String(CH_DISAGG)],
           ] as [f, d, ch], i}
             <g in:fly={{ x: -6, delay: i * 60, duration: 200 }}>
               <text x="32" y={68 + i * 23} class="mono">{f}</text>
-              <text x="330" y={68 + i * 23} class="tag">{d}</text>
+              <text x="372" y={68 + i * 23} class="tag">{d}</text>
               <rect x="600" y={56 + i * 23} width={badgeW('ch ' + ch)} height="16" rx="8" fill="var(--accent-soft)" />
               <text x="609" y={68 + i * 23} class="tag strong" fill="var(--accent)">ch {ch}</text>
             </g>

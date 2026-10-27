@@ -77,8 +77,8 @@
   // what it samples, which is why the sampled column and the next step's ids column are the same list.
   const B_EX = 48;
   const OURS = 1;                                   // the request we follow, with chapter 1's tokens
-  const stepIds = [[92, 374, 1120], [41, 12366, 887], [5, 13, 62], [77, 2, 300]];
-  const decode: Record<number, string> = { 374: '" is"', 12366: '" Paris"', 13: '"."', 2: '<EOS>' };
+  const stepIds = [[92, 374, 1120], [41, 12366, 887], [5, 13, 62], [77, 128001, 300]];
+  const decode: Record<number, string> = { 374: '" is"', 12366: '" Paris"', 13: '"."', 128001: '<EOS>' };
   const trip = recorded.slice(0, 4);      // the round trips drawn in the eager ladder
   const listed = recorded.slice(0, 5);    // the entries drawn in the graph list
 

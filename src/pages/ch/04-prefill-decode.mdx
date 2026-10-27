@@ -16,6 +16,8 @@ $$
 t_{\text{compute}} = \frac{2Pn}{\text{FLOP/s}}, \qquad t_{\text{memory}} = \frac{2P + \text{cache}}{\text{bytes/s}}
 $$
 
-They cross at $n^* = \dfrac{\text{FLOP/s}}{\text{bytes/s}}$, the accelerator's ratio of compute to bandwidth. For an H100 that's about $989 \cdot 10^{12} / 3.35 \cdot 10^{12} \approx 300$ tokens per step. Decode runs at $n = 1$ per sequence.
+They cross at $n^* = \dfrac{\text{FLOP/s}}{\text{bytes/s}}$, the accelerator's ratio of compute to bandwidth. For an H100 SXM that's about $989 \cdot 10^{12} / 3.35 \cdot 10^{12} \approx 300$ tokens per step. Decode runs at $n = 1$ per sequence.
+
+Both are round numbers. The 1 GB input embedding table is only looked up, so a step streams about 15 GB of weights, and SGLang runs the output layer only at a prompt's last position, so a 2,000-token prefill is closer to 29 TFLOP than 32. The two shrink together, so the balance point barely moves. The rates are the datasheet's peaks; real kernels reach less of both.
 
 </details>
