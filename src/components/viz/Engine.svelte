@@ -11,13 +11,14 @@
   type Scene = 'process' | 'overlap' | 'future' | 'map';
   interface Step { caption: string; scene: Scene; v?: number }
   const steps: Step[] = [
-    { scene: 'process', v: 0, caption: `Inside process 2. Two lists of <b>Req</b> objects, waiting and running. The page pool and the radix tree from Ch. 7 Step 4 and Ch. 8 Step 4. A model runner that owns the GPU. And one loop, about ${Math.round(1000 / Number(tStep.toFixed(1)))} times a second while it has work.` },
+    { scene: 'process', v: 0, caption: `Inside process 2. Ch. 6 Step 9's choice of batch is one of this loop's six stages. Around them: two lists of <b>Req</b> objects, the page pool and radix tree (Ch. 7 Step 4, Ch. 8 Step 4), and a model runner that owns the GPU.` },
     { scene: 'process', v: 1, caption: `Top of the loop: drain the inbox. Each message becomes a Req, with its ids and sampling params, and takes a place at the end of the waiting list. Ours arrives now.` },
     { scene: 'process', v: 2, caption: `Ch. 6 Step 9's decision. Matched against the tree, 3 of our 5 tokens are cached. Is there room for the other 2, and for the answer to come (Ch. 7 Step 7)? Yes, so it joins this step's prefill batch.` },
     { scene: 'process', v: 3, caption: `A batch becomes tensors: every token id in one flat array, each request's positions, and each request's page table so attention can find its cache. Its 2 pages were taken as the batch was chosen.` },
     { scene: 'process', v: 4, caption: `The model runner runs chapters 2 to 4: embeddings, 32 layers of attention over the paged cache and MLP, logits for the last position of every request. New k and v land in the pages just allocated.` },
     { scene: 'process', v: 5, caption: `Logits become one token per request: temperature, top-p, penalties, whatever each asked for. Our Req's is 12366, " Paris".` },
     { scene: 'process', v: 6, caption: `Bookkeeping. Each Req appends its id and checks itself: EOS? max tokens? Finished Reqs hand their pages to the tree. One message with every new token goes to the detokenizer. Back to the top.` },
+    { scene: 'process', v: 7, caption: `Where each stage runs. Planning and processing are Python on the CPU; forward and sampling run on the GPU. In this loop they take turns: the GPU idles while the CPU works, and the CPU waits for the GPU's tokens.` },
     { scene: 'overlap', caption: `<b>Overlap scheduling.</b> Kernel launches return at once: right after launching step t, the CPU plans t+1, then processes t's results while the GPU runs t+1. SGLang's event_loop_overlap; vLLM v1 calls it async scheduling.` },
     { scene: 'future', caption: `The catch: step t+1's decode input is step t's sampled token, and the CPU planned t+1 before that token existed. So the plan carries a placeholder, a slot in a GPU buffer. Step t's sampler fills it; step t+1's first kernel reads it. No round trip.` },
     { scene: 'map', caption: `The whole site as a file tree. Every chapter is a module in sglang/srt, and the loop you just watched is scheduler.py. Next: how the model runner launches a thousand kernels as one.` },
@@ -37,7 +38,7 @@
   const M = { x: 228, w: 250 };
   const R = { x: 502, w: 194 };
   const pipe = [
-    { k: 'recv', t: 'recv_requests', s: 'inbox → Req objects', y: 64 },
+    { k: 'recv', t: 'ingest_requests', s: 'inbox → Req objects', y: 64 },
     { k: 'schedule', t: 'get_next_batch_to_run', s: 'prefill or decode batch', y: 118 },
     { k: 'prepare', t: 'ScheduleBatch → ForwardBatch', s: 'ids · positions · pages', y: 172 },
     { k: 'forward', t: 'ModelRunner.forward', s: 'embed → 32 layers → logits', y: 226 },
@@ -46,6 +47,13 @@
   ];
   const BOXH = 44;
   const hot = (i: number) => v === i + 1;
+  // where each stage runs (step 8), in the overlap step's colours: plan, run on the GPU, results
+  const GROUPS = [
+    { from: 0, to: 2, c: 'var(--accent)', title: 'plan · CPU', lines: ['ingest, choose, build tensors', 'the GPU has nothing to run yet'] },
+    { from: 3, to: 4, c: 'var(--gen)', title: 'run · GPU', lines: ['forward pass and sampling', 'the CPU waits for the tokens'] },
+    { from: 5, to: 5, c: '#0891b2', title: 'process · CPU', lines: ['append, finish, send', 'the GPU sits idle again'] },
+  ];
+  const groupOf = (i: number) => GROUPS.find((g) => i >= g.from && i <= g.to)!;
   // side panels lit up by each stage
   const lit = (name: string) => ({
     inbox: v === 1, waiting: v === 1 || v === 2, running: v === 2 || v === 6, outbox: v === 6,
@@ -82,8 +90,22 @@
 
       {#if cur.scene === 'process'}
         <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="44" class="rowlabel">process 2 · the scheduler · one step of the loop{v > 0 ? ` · ${pipe[v - 1].t}` : ''}</text>
+          <text x="16" y="44" class="rowlabel">process 2 · the scheduler · one step of the loop{v === 7 ? ' · where each stage runs' : v > 0 ? ` · ${pipe[v - 1].t}` : ''}</text>
 
+          {#if v === 7}
+          <!-- left: what runs where, and who waits -->
+          {#each GROUPS as g, k}
+            {@const top = pipe[g.from].y + 4}
+            {@const bot = pipe[g.to].y + BOXH - 4}
+            {@const mid = (top + bot) / 2}
+            <g in:fade={{ delay: 200 + k * 250 }}>
+              <path d="M 222 {top} H 214 V {bot} H 222" fill="none" stroke={g.c} stroke-width="1.5" />
+              <text x="202" y={mid - 10} text-anchor="end" class="tag strong" style:fill={g.c}>{g.title}</text>
+              <text x="202" y={mid + 6} text-anchor="end" class="tag">{g.lines[0]}</text>
+              <text x="202" y={mid + 20} text-anchor="end" class="tag">{g.lines[1]}</text>
+            </g>
+          {/each}
+          {:else}
           <!-- left: lists and wires -->
           <rect x={L.x} y="64" width={L.w} height="30" rx="8" fill="#fbfaf7" stroke={lit('inbox') ? 'var(--accent)' : 'var(--line)'} stroke-width={lit('inbox') ? 2 : 1} />
           <text x={L.x + 10} y="83" class="tag strong">inbox · zmq PULL</text>
@@ -111,19 +133,27 @@
             <rect x={L.x + 120} y="320" width="44" height="14" rx="3" fill="#0891b2" in:fly={{ x: 30, duration: 300 }} />
             <text x={L.x + 142} y="330" text-anchor="middle" class="tiny">ids</text>
           {/if}
+          {/if}
 
           <!-- middle: the pipeline -->
           {#each pipe as p, i}
-            <rect x={M.x} y={p.y} width={M.w} height={BOXH} rx="8" fill={hot(i) ? 'white' : '#fbfaf7'} stroke={hot(i) ? 'var(--fg)' : 'var(--line)'} stroke-width={hot(i) ? 2 : 1} />
+            <rect x={M.x} y={p.y} width={M.w} height={BOXH} rx="8" fill={hot(i) ? 'white' : '#fbfaf7'} stroke={v === 7 ? groupOf(i).c : hot(i) ? 'var(--fg)' : 'var(--line)'} stroke-width={hot(i) || v === 7 ? 2 : 1} />
             <text x={M.x + 12} y={p.y + 18} class="mono" font-weight={hot(i) ? 700 : 400}>{p.t}</text>
-            <text x={M.x + 12} y={p.y + 34} class="tag">{p.s}</text>
+            <text x={M.x + 12} y={p.y + 34} class="tag">{p.s}{v === 0 && p.k === 'schedule' ? ' · Ch. 6 Step 9' : ''}</text>
+            {#if v === 7}
+              <g in:fade={{ delay: 100 + i * 80 }}>
+                <rect x={M.x + M.w - 42} y={p.y + 14} width="32" height="16" rx="4" fill={groupOf(i).c} />
+                <text x={M.x + M.w - 26} y={p.y + 25} text-anchor="middle" class="tiny">{i === 3 || i === 4 ? 'GPU' : 'CPU'}</text>
+              </g>
+            {/if}
             {#if i < pipe.length - 1}
               <path d="M {M.x + 40} {p.y + BOXH} V {pipe[i + 1].y - 1}" fill="none" stroke="#b8b4aa" stroke-width="1.5" marker-end="url(#en-grey)" />
             {/if}
           {/each}
           <path d="M {M.x + M.w} 356 H {M.x + M.w + 12} V 86 H {M.x + M.w + 1}" fill="none" stroke="#b8b4aa" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#en-grey)" />
 
-          <!-- right: memory and GPU -->
+          <!-- right: memory and GPU (faded on step 8, where blue means the CPU's plan) -->
+          <g opacity={v === 7 ? 0.3 : 1} style="transition: opacity 250ms">
           <rect x={R.x} y="64" width={R.w} height="90" rx="8" fill="#fbfaf7" stroke={lit('tree') ? 'var(--accent)' : 'var(--line)'} stroke-width={lit('tree') ? 2 : 1} />
           <text x={R.x + 10} y="82" class="tag strong">RadixCache</text>
           <text x={R.x + 10} y="96" class="tag">shared prefixes · Ch. 8 Step 4</text>
@@ -164,9 +194,10 @@
           {#if v === 4}<text x={R.x + 10} y="362" class="tag" fill="var(--gen)" in:fade>2 new tokens (+ other prefills) in</text>{/if}
           {#if v === 5}<text x={R.x + 10} y="346" class="tag" fill="var(--gen)" in:fade>argmax / sample per request</text>{/if}
           {#if v === 5}<text x={R.x + 10} y="362" class="tag" in:fade>our Req: 12366 → " Paris"</text>{/if}
+          </g>
 
           <!-- our Req, travelling -->
-          {#if v >= 1}
+          {#if v >= 1 && v <= 6}
             <g class="req" style:transform="translate({reqPos.x}px, {reqPos.y}px)">
               <rect width="108" height="14" rx="4" fill="var(--eos)" />
               <text x="54" y="10" text-anchor="middle" class="tiny">{reqTag}</text>
@@ -218,7 +249,7 @@
           <line x1={OL.x} y1="294" x2={OL.x + 21 * OL.pxPerMs} y2="294" stroke="var(--line)" />
           {#each [0, 5, 10, 15, 20] as ms}<text x={OL.x + ms * OL.pxPerMs} y="308" text-anchor="middle" class="tag">{ms} ms</text>{/each}
 
-          <rect x={OL.x} y="318" width="12" height="12" rx="2" fill="var(--accent)" opacity="0.85" /><text x={OL.x + 18} y="328" class="tag">plan: recv · schedule · flatten · launch kernels</text>
+          <rect x={OL.x} y="318" width="12" height="12" rx="2" fill="var(--accent)" opacity="0.85" /><text x={OL.x + 18} y="328" class="tag">plan: ingest · schedule · tensors · launch kernels</text>
           <rect x={OL.x + 290} y="318" width="12" height="12" rx="2" fill="#0891b2" opacity="0.9" /><text x={OL.x + 308} y="328" class="tag">results: append tokens · finish Reqs · send</text>
           <g in:fade={{ delay: 1400 }}>
             <text x="16" y="348" class="legend">the GPU lane is solid: {fmt(plan + res)} of Python per step comes off the critical path,</text>

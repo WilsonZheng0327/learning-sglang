@@ -20,7 +20,7 @@ export const chapters: Chapter[] = [
   { part: 'loop', slug: '07-kv-memory', title: 'KV memory', hook: 'Pages, and the memory cap.', ready: true },
   { part: 'loop', slug: '08-prefix-caching', title: 'Prefix caching', hook: 'Same beginning, one copy.', ready: true },
   { part: 'loop', slug: '09-one-request', title: 'One request, end to end', hook: 'From an HTTP POST to the GPU and back.', ready: true },
-  { part: 'loop', slug: '10-engine', title: "The scheduler's loop", hook: 'One Req through one step.', ready: true },
+  { part: 'loop', slug: '10-engine', title: 'Scheduler deep dive', hook: 'One Req through one step.', ready: true },
 
   { part: 'fast', slug: '11-cuda-graphs', title: 'CUDA graphs', hook: 'Launching a thousand kernels as one.', ready: true },
   { part: 'fast', slug: '12-piecewise-cuda-graph', title: 'Piecewise CUDA graphs', hook: 'When the graph has to break.', ready: true },

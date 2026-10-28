@@ -14,8 +14,8 @@ Read it to check wording and numbers across chapters without opening the compone
 | 06 | [The scheduler](06-scheduler.md) | 9 |
 | 07 | [KV memory](07-kv-memory.md) | 7 |
 | 08 | [Prefix caching](08-prefix-caching.md) | 8 |
-| 09 | [One request, end to end](09-one-request.md) | 10 |
-| 10 | [The scheduler's loop](10-engine.md) | 10 |
+| 09 | [One request, end to end](09-one-request.md) | 9 |
+| 10 | [Scheduler deep dive](10-engine.md) | 11 |
 | 11 | [CUDA graphs](11-cuda-graphs.md) | 14 |
 | 12 | [Piecewise CUDA graphs](12-piecewise-cuda-graph.md) | 12 |
 | 13 | [torch.compile](13-torch-compile.md) | 11 |

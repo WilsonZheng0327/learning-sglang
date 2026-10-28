@@ -14,4 +14,6 @@ import { neighbors } from '../../chapters';
 
 They talk over ZeroMQ PUSH/PULL sockets on `ipc://` Unix domain sockets: `TokenizedGenerateReqInput` in, `BatchTokenIDOutput` to the detokenizer, `BatchStrOutput` back to the server. The scheduler calls `recv_pyobj(zmq.NOBLOCK)` in a loop at the top of each step to drain everything that arrived. Streaming responses are server-sent events, one `data:` line per token in the OpenAI-compatible format.
 
+Open connections live in the server process and cost it a little memory each, not GPU time, so a burst of clients does not slow the loop. The scheduler runs as many requests as the KV pool has room for (chapter 7), capped further by `--max-running-requests`. The rest wait in `Scheduler.waiting_queue` with their connections open, and see a longer wait for the first token rather than an error. Past `--max-queued-requests`, the server answers new requests with 503 instead of queueing them.
+
 </details>

@@ -26,7 +26,7 @@
     { scene: 'eager', caption: `Closer still. <b>Eager mode</b> is a conversation, one kernel at a time: Python calls PyTorch, the dispatcher picks a kernel, the driver hands it over. About ${LAUNCH_US} µs to ask, ${kernelUs} µs to run, then the GPU waits.` },
     { scene: 'record', caption: `<b>Recording.</b> Run the step once with capture on and nothing executes. Each launch is written down instead: which kernel, which addresses it reads and writes, how many rows. Built once at startup, not once per step.` },
     { scene: 'replay', caption: `<b>Replay.</b> One call hands the GPU the finished list, and it walks the entries itself, back to back. A thousand round trips became one, and the CPU is out of the loop for the rest of the step.` },
-    { scene: 'lanes', v: 1, caption: `Back to the two lanes. The CPU spends ${REPLAY_US} µs, the GPU runs the thousand kernels back to back: ${fmt(tMem)}. The CPU is free for the whole step, which is exactly what Ch. 10 Step 8's overlap needed.` },
+    { scene: 'lanes', v: 1, caption: `Back to the two lanes. The CPU spends ${REPLAY_US} µs, the GPU runs the thousand kernels back to back: ${fmt(tMem)}. The CPU is free for the whole step, which is exactly what Ch. 10 Step 9's overlap needed.` },
     { scene: 'shape', caption: `A recording is literal: this kernel, these addresses, this many rows. Give it more rows than it saw and the extra ones are never touched — including the output buffer the CPU reads afterwards. Nothing below the engine will stop you.` },
     { scene: 'ladder', caption: `But the running batch changes size every few steps as requests finish and join. So at startup the engine records a ladder of graphs, one per size: ${CAPTURED.slice(0, 4).join(', ')} … ${CAPTURED[CAPTURED.length - 1]}. A few seconds, once.` },
     { scene: 'pad', caption: `So a batch of 37 is padded up to the next rung, 48. The 11 dummy rows go through the whole step and their logits are thrown away, which still costs far less than a thousand launches.` },
@@ -338,7 +338,7 @@
           <g in:fade={{ delay: 900, duration: 300 }}>
             <text x="54" y="180" class="tag">then nothing. The CPU is free</text>
             <text x="54" y="196" class="tag">for the rest of the step —</text>
-            <text x="54" y="212" class="tag">Ch. 10 Step 8's overlap, paid for.</text>
+            <text x="54" y="212" class="tag">Ch. 10 Step 9's overlap, paid for.</text>
           </g>
 
           {#each listed as r, i}

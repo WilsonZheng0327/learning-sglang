@@ -25,7 +25,7 @@ Why every piece of the engine exists.
 | 07 | [KV memory](https://wilsonzheng0327.github.io/learning-sglang/ch/07-kv-memory/) | Pages, and the memory cap. | live |
 | 08 | [Prefix caching](https://wilsonzheng0327.github.io/learning-sglang/ch/08-prefix-caching/) | Same beginning, one copy. | live |
 | 09 | [One request, end to end](https://wilsonzheng0327.github.io/learning-sglang/ch/09-one-request/) | From an HTTP POST to the GPU and back. | live |
-| 10 | [The scheduler's loop](https://wilsonzheng0327.github.io/learning-sglang/ch/10-engine/) | One Req through one step. | live |
+| 10 | [Scheduler deep dive](https://wilsonzheng0327.github.io/learning-sglang/ch/10-engine/) | One Req through one step. | live |
 
 ### Making one GPU fast
 

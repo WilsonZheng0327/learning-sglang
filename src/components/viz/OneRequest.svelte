@@ -2,30 +2,26 @@
   import { fade, fly } from 'svelte/transition';
   import StepControls from '../StepControls.svelte';
   import { chapterNumber as chNum, chapters, type NavLink } from '../../chapters';
-  import { W_GB, HBM_GB, BW, KB_PER_TOKEN as KB_TOK } from '../../numbers';
+  import { W_GB, HBM_GB, BW } from '../../numbers';
   let { prev, next }: { prev?: NavLink; next?: NavLink } = $props();
   const CH_ENGINE = chNum('10-engine'), CH_TP = chNum('24-tensor-parallel'), CH_DP = chNum('26-dp-attention');
 
   const tStep = W_GB / BW;                                  // ≈ 4.8 ms decode step, from chapter 4
-  const MB_4K = (4096 * KB_TOK * 1024) / 1e6;               // one request at 4k context: 537 MB (KB_TOK is KiB)
-  const RUNNING = Math.floor(((HBM_GB - W_GB) * 1000) / MB_4K);   // chapter 7's cap at 4k context: 119
-  const OPEN = 3000, WAITING = 41;                          // an example load: 3,000 tabs open, 41 just submitted
   const fmt = (ms: number) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms';
 
   // ---- Script ---------------------------------------------------------------------------------------------
-  type Scene = 'system' | 'timeline' | 'queue' | 'zmq' | 'many';
+  type Scene = 'system' | 'timeline' | 'queue' | 'zmq';
   interface Step { caption: string; scene: Scene; v?: number }
   const steps: Step[] = [
     { scene: 'system', v: 0, caption: `Launch the server. It loads the ${W_GB} GB of weights onto the GPU, carves most of the rest of the card into a KV pool, and opens an HTTP port. Then it waits.` },
     { scene: 'system', v: 1, caption: `A client sends a chat request: JSON over HTTP, with <code>stream: true</code>. The server parses it and applies the chat template. Now it has a string, and the GPU can't use a string.` },
-    { scene: 'system', v: 2, caption: `Tokenization turns the text into ids, Ch. 1 Step 2. It's CPU work: microseconds for a short prompt, a couple of milliseconds for a long one. Now the ids need to reach the scheduler.` },
+    { scene: 'system', v: 2, caption: `Tokenization turns the text into ids, Ch. 1 Step 2. It's CPU work: microseconds for a short prompt, a couple of milliseconds for a long one. Now the ids need to reach the scheduler loop, which needs the CPU too.` },
     { scene: 'timeline', v: 0, caption: `Put it all in one process and the scheduler loop shares one Python interpreter with the HTTP server, the tokenizer, and the detokenizer. Python runs one at a time, so every one of those jobs lands between steps while the GPU idles.` },
     { scene: 'timeline', v: 1, caption: `So SGLang splits the work into three processes: one talks HTTP and tokenizes, one runs the scheduler loop that drives the GPU and nothing else, one turns ids back into text. Three interpreters on three cores; the loop never waits.` },
     { scene: 'queue', v: 0, caption: `Three processes need a way to hand things over. <b>ZeroMQ</b> is a queue between processes: the tokenizer drops a message in and moves on. At the top of every step the scheduler takes out whatever has arrived. Neither waits for the other.` },
     { scene: 'zmq', v: 1, caption: `Three wires, three queues, each touched by exactly two processes. The same request rides around the outside, changing shape at each hop but keeping its rid. A queue over a Unix socket works over TCP too.` },
     { scene: 'system', v: 3, caption: `Inside the scheduler the message becomes a <b>Req</b>, the object that carries this request from here on. It joins the waiting list, gets its prefill, then a token every step, as chapters 6 to 8 described.` },
-    { scene: 'system', v: 4, caption: `The detokenizer turns each id into text, and the server writes it to the client's open connection as a server-sent event, one per token. Words appear as they're decoded.` },
-    { scene: 'many', caption: `Open connections cost the server process memory, not GPU time. The scheduler runs as many as memory allows, ${RUNNING} here; everyone else waits in line, connection open, no tokens yet. That line is the backpressure. Inside the loop: chapter ${CH_ENGINE}.` },
+    { scene: 'system', v: 4, caption: `The detokenizer turns each id into text, and the server sends it to the client as a server-sent event, one per token. Ch. 6 Step 9 picked the batch. What else does process 2 do to put out one id every ${fmt(tStep)}? Chapter ${CH_ENGINE}.` },
   ];
 
   let step = $state(0);
@@ -169,6 +165,31 @@
           {:else if v === 2}
             <path d="M {SV.x + SV.w} {SV.y + 60} H {SC.x - 4}" fill="none" stroke="var(--faint)" stroke-width="1.5" stroke-dasharray="4 3" marker-end={mk('grey')} />
             <text x={(SV.x + SV.w + SC.x) / 2} y={SV.y + 52} text-anchor="middle" class="tag">ids → ?</text>
+            <!-- each side's CPU work and its rhythm: the server's comes at random, the loop's between GPU steps -->
+            <g in:fade={{ delay: 500 }}>
+              <text x={SV.x} y="266" class="tag strong">server · whenever a client sends</text>
+              {#each [[0, 6], [18, 26], [72, 4], [104, 14], [142, 8], [164, 22]] as [dx, w]}
+                <rect x={SV.x + dx} y="276" width={w} height="16" rx="2" fill="var(--accent)" opacity="0.85" />
+              {/each}
+              <text x={SV.x} y="310" class="tag">parse JSON, tokenize: µs to 2 ms</text>
+              <text x={SV.x} y="324" class="tag">per token: ids → text, write it out</text>
+
+              <text x={SC.x} y="266" class="tag strong">scheduler loop · once requests are running</text>
+              {#each [0, 1, 2] as k}
+                <rect x={SC.x + k * 100} y="276" width="6" height="16" rx="1.5" fill="var(--fg)" />
+                <rect x={SC.x + k * 100 + 8} y="276" width="90" height="16" rx="2" fill="var(--gen)" opacity="0.85" />
+                <text x={SC.x + k * 100 + 53} y="288" text-anchor="middle" class="steplabel">GPU step</text>
+              {/each}
+              <text x={SC.x} y="310" class="tag">GPU step: {fmt(tStep)} each, Ch. 4 Step 5's weight read</text>
+              <rect x={SC.x} y="316" width="6" height="10" rx="1.5" fill="var(--fg)" />
+              <text x={SC.x + 12} y="324" class="tag">between steps, on the CPU: pick the next batch</text>
+            </g>
+            <g in:fade={{ delay: 1100 }}>
+              <text x="18" y="356" class="pt">·</text>
+              <text x="28" y="356" class="legend">both sides are Python code, and both run on the CPU</text>
+              <text x="18" y="374" class="pt">·</text>
+              <text x="28" y="374" class="legend">the simplest hand-off: run both in one process, and pass the ids as a function call</text>
+            </g>
           {:else if v >= 3}
             <path d="M {CL.x + CL.w} {CL.y + 22} H {SV.x - 4}" fill="none" stroke="var(--faint)" stroke-width="1.5" marker-end={mk('grey')} />
             <path d="M {SV.x + SV.w} {SV.y + 60} H {SC.x - 4}" fill="none" stroke={v === 3 ? 'var(--accent)' : 'var(--faint)'} stroke-width="1.5" marker-end={mk(v === 3 ? 'accent' : 'grey')} />
@@ -354,40 +375,6 @@
         </g>
       {/if}
 
-      <!-- Many clients -->
-      {#if cur.scene === 'many'}
-        {@const idle = OPEN - RUNNING - WAITING}
-                <g transition:fade={{ duration: 250 }}>
-          <text x="16" y="44" class="rowlabel">an example load · {OPEN.toLocaleString()} chat tabs open on this server</text>
-          {#each [
-            { v: OPEN.toLocaleString(), l: 'open connections', s: ['an assumption for this example', `${idle.toLocaleString()} idle · ${RUNNING} running · ${WAITING} queued`], c: 'var(--accent)' },
-            { v: String(RUNNING), l: 'running', s: ["Ch. 7 Step 2's memory cap at 4k context", `${HBM_GB - W_GB} GB ÷ ${Math.round(MB_4K)} MB = ${RUNNING} running at most`], c: 'var(--gen)' },
-            { v: String(WAITING), l: 'waiting', s: ['submitted this second, not yet admitted', 'connection open, no tokens yet'], c: 'var(--eos)' },
-          ] as t, i}
-            {@const x = 24 + i * 226}
-            <g in:fly={{ y: 8, delay: i * 200, duration: 300 }}>
-              <rect {x} y="60" width="210" height="104" rx="12" fill="#fbfaf7" stroke={t.c} />
-              <text x={x + 16} y="92" class="tile-value">{t.v}</text>
-              <text x={x + 16} y="112" class="tile-label strong">{t.l}</text>
-              <text x={x + 16} y="132" class="tag">{t.s[0]}</text>
-              <text x={x + 16} y="148" class="tag">{t.s[1]}</text>
-            </g>
-          {/each}
-          <g in:fade={{ delay: 800 }}>
-            <text x="24" y="190" class="rowlabel">what one step of the loop carries</text>
-            <rect x="24" y="200" width={RUNNING * 1.9} height="26" rx="5" fill="var(--gen)" opacity="0.9" />
-            <text x={24 + (RUNNING * 1.9) / 2} y="217" text-anchor="middle" class="steplabel">{RUNNING} decode tokens · one per running request</text>
-            <text x={24 + RUNNING * 1.9 + 12} y="217" class="tag">{fmt(tStep)}</text>
-            <text x="24" y="246" class="tag">every {fmt(tStep)}: {RUNNING} clients each get a token; a waiting client starts its prefill only when one of them finishes</text>
-          </g>
-          <g in:fade={{ delay: 1500 }}>
-            <text x="24" y="292" class="slab strong small">backpressure</text>
-            <text x="24" y="312" class="tag">a burst of requests breaks nothing: {RUNNING} run, {WAITING} wait, everyone else holds an open connection and a place in line</text>
-            <text x="24" y="328" class="tag">clients feel a longer wait for the first token, not an error; past --max-queued-requests the server answers 503 instead</text>
-          </g>
-          <text x={W / 2} y={H - 10} text-anchor="middle" class="footnote" in:fade={{ delay: 2000 }}>SGLang: <tspan class="mono">--max-running-requests</tspan> · <tspan class="mono">--max-queued-requests</tspan> · the line is <tspan class="mono">Scheduler.waiting_queue</tspan></text>
-        </g>
-      {/if}
     </svg>
   </div>
 
@@ -397,9 +384,6 @@
 <style>
   .mono.strong { font-weight: 700; }
   .tag.muted { fill: var(--faint); }
-  .tile-value { font-size: 22px; font-weight: 650; fill: var(--fg); letter-spacing: -0.02em; }
-  .tile-label { font-size: 10.5px; fill: var(--muted); }
-  .tile-label.strong { fill: var(--fg); font-weight: 600; font-size: 11.5px; }
   .seg { transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
   .stepfill { transform-box: fill-box; transform-origin: left center; animation: stepfill 4.4s linear forwards; }
   @keyframes stepfill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
