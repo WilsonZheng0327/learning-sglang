@@ -50,7 +50,7 @@ Speech and vision break the assumptions of Part I, one at a time.
 | 18 | [Between stages](https://wilsonzheng0327.github.io/learning-sglang/ch/18-between-stages/) | Eight edges, four ways to cross them. | live |
 | 19 | [Sharing GPUs](https://wilsonzheng0327.github.io/learning-sglang/ch/19-sharing-gpus/) | Several models, one card. | live |
 | 20 | [Streaming audio decode](https://wilsonzheng0327.github.io/learning-sglang/ch/20-streaming-audio/) | Output with a real-time deadline. | live |
-| 21 | Full duplex | Listening while speaking. | planned |
+| 21 | [Full duplex](https://wilsonzheng0327.github.io/learning-sglang/ch/21-full-duplex/) | Listening while speaking. | live |
 
 ### More from one GPU
 

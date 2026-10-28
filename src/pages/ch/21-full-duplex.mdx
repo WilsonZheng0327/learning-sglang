@@ -1,0 +1,33 @@
+---
+layout: ../../layouts/Chapter.astro
+slug: 21-full-duplex
+---
+import FullDuplex from '../../components/viz/FullDuplex.svelte';
+import { neighbors } from '../../chapters';
+
+<FullDuplex client:load {...neighbors('21-full-duplex')} />
+
+<details>
+<summary>Where this chapter's claims come from</summary>
+
+**The models.** SGLang-Omni serves MiniCPM-o 4.5 and PersonaPlex as native full-duplex models on `/v1/realtime` (`docs/developer_reference/full_duplex_interactive_model.md`). MiniCPM-o takes the listener's audio in 1-second units and decides once per unit whether to keep listening or to speak; PersonaPlex works in 80 ms units. Qwen3-Omni runs turn-based, with a voice-activity detector ending turns and interrupting replies. Step 1's two failures are the ones SGLang-Omni's documentation gives for that detector: a pause in the middle of a sentence ends the turn, and speech always interrupts a running reply. A turn-based profile can add Smart Turn, a model that scores whether a pause ends the turn, which addresses the first. Step 1's timelines are illustrative.
+
+**The stages.** MiniCPM-o's full-duplex pipeline (`models/minicpm_o/native_config.py`) has four stages: `perception`, `thinker`, `talker` and `speech`. Each 1-second unit is one request through them.
+
+**What a request keeps.** Step 3's forgetting is chapter 7's rule (Ch. 7 Step 5): when a request finishes, what each stage built for it is freed. A unit is a request, so without anything more each unit would start from nothing.
+
+**Why the prefix cache does not cover it.** Chapter 8's radix tree matches token ids. A session unit carries its audio as embeddings under placeholder ids, which do not identify them, so SGLang-Omni keeps such units out of the radix tree (`scheduling/sglang_backend/ar_session.py`); and perception and vocoder state are not cached by it at all.
+
+**Sessions.** A session is opened, appended to, controlled, read and closed by the client (`scheduling/session.py`, `pipeline/sessions.py`). Open runs stage by stage from upstream, close from downstream. A session is named by its id and an open index (`SessionIdentity`), so an id opened again does not inherit what an earlier open kept. Step 4 leaves out `read`, which collects output a stage makes between appends.
+
+**What each stage keeps.** Perception's hooks keep the audio encoder's running state, the end of the last unit's audio and any images. The thinker and talker keep their KV cache through SGLang core's `SessionController`: an append becomes a request that continues the session's cache rather than a new one. MiniCPM-o caps a session at 8,192 tokens of history and then closes it with `context_exhausted`, and caps the speech stage's state at `speech_state_bytes_per_session`, 2 GiB.
+
+**Hooks.** Session operations reach a stage as ordinary requests whose metadata carries `omni_session`. `SessionScheduler`, a subclass of the one-pass `SimpleScheduler`, reads the tag and calls the stage's `SessionHooks`: `open`, `append`, `control`, `close` and `usage`, plus `attach_output_stream` for output made between appends and `BatchedSessionHooks.append_batch` to run several sessions' appends together. Each stage keeps a cursor per session, so a session's operations run in the order they arrived. The thinker and talker run SGLang's own scheduler loop instead, where `ARSessionBridge` (`scheduling/sglang_backend/ar_session.py`) turns open into `SessionController.open` and an append into a request built on the kept cache, and also handles cancel and rewind.
+
+**One unit at a time.** A live call reaches the server over `/v1/realtime`. The realtime session (`serve/realtime/runtime.py`) buffers the listener's audio, cuts the next 1-second unit once a full one is there, hands it on and waits until it has gone through every stage before cutting the next. It holds at most 60 s of audio (`max_input_bytes`, 1,920,000 bytes of 16 kHz 16-bit audio) and answers a further append with `buffer_overflow`. Behind it, `CoordinatorSessions` (`pipeline/sessions.py`, the coordinator of Ch. 18 Step 10) keeps the open sessions, each with a pump that also sends one append at a time in sequence order, and `SessionLimits` caps that queue at 16 chunks or 4 MB, closes a session after 300 s idle and times out an operation after 30 s. Units are not pipelined across stages: unit 2 does not enter perception while unit 1 is in the talker. When a stage runs several copies, the coordinator also binds each session to one copy of each stage for its whole life, since that copy holds its state. Step 7's 0.8 s and 1.5 s are illustrative; the 3 minutes follow from them.
+
+**Interruption.** Qwen3-Omni's session graph puts a Silero voice-activity detector in front: 800 ms of silence ends the listener's turn, and speech during a reply sends an interrupt as a `control` operation, which, marked to preempt, cancels the appends in flight. Reply audio is sent at most `max_output_lead_ms` ahead of real time, 1,000 by default.
+
+**The memory.** Step 8's call is Qwen3-Omni's thinker: 1,800 s × 13 positions a second (Ch. 16 Step 2) × 96 KB (Ch. 19 Step 4) = 2.2 GB. GPU 0 of the default layout holds 63.8 GB of weights (Ch. 19 Step 1), leaving 16.2 GB, room for 7 such calls. That is an upper bound: working memory takes part of the rest. MiniCPM-o reserves room for full-length sessions when it starts, 2 by default (`max_sessions`).
+
+</details>

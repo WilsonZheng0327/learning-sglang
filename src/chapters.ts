@@ -33,7 +33,7 @@ export const chapters: Chapter[] = [
   { part: 'omni', slug: '18-between-stages', title: 'Between stages', hook: 'Eight edges, four ways to cross them.', ready: true },
   { part: 'omni', slug: '19-sharing-gpus', title: 'Sharing GPUs', hook: 'Several models, one card.', ready: true },
   { part: 'omni', slug: '20-streaming-audio', title: 'Streaming audio decode', hook: 'Output with a real-time deadline.', ready: true },
-  { part: 'omni', slug: '21-full-duplex', title: 'Full duplex', hook: 'Listening while speaking.', ready: false },
+  { part: 'omni', slug: '21-full-duplex', title: 'Full duplex', hook: 'Listening while speaking.', ready: true },
 
   { part: 'faster', slug: '22-quantization', title: 'Quantization', hook: 'Shrinking the read every step pays for.', ready: false },
   { part: 'faster', slug: '23-two-batch-overlap', title: 'Two-batch overlap', hook: 'Hiding communication behind compute.', ready: false },

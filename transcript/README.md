@@ -26,3 +26,4 @@ Read it to check wording and numbers across chapters without opening the compone
 | 18 | [Between stages](18-between-stages.md) | 11 |
 | 19 | [Sharing GPUs](19-sharing-gpus.md) | 6 |
 | 20 | [Streaming audio decode](20-streaming-audio.md) | 6 |
+| 21 | [Full duplex](21-full-duplex.md) | 8 |
