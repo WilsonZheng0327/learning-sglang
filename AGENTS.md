@@ -9,6 +9,7 @@ npm run build                  # the type check
 npm run preview
 npm run transcript             # with the dev server up: transcripts + layout checks (ONLY=N for one chapter)
 npm run shot -- <outDir> <waitMs> 'name=url' ...   # screenshots
+npm run og                     # re-render public/og.png, the link-preview card, from scripts/og/card.html
 ```
 
 Node >= 22.12 (`engines` in package.json). Dev and preview both serve at
@@ -46,7 +47,7 @@ Moved here from the README so the README stays reader-facing.
 ## How a page is assembled
 
 - `src/chapters.ts` is the single source of truth for the roster: five `parts`, in reading order (`loop`, `fast`, `omni`, `faster`, `scale`) and one `chapters` entry per chapter (`slug`, `title`, `hook`, `part`, `ready`). `neighbors(slug)` reads from it. The README's chapter table is a second, hand-maintained rendering of the same list — update it in the same commit.
-- `src/layouts/Chapter.astro` is the only layout. Chapter frontmatter is just `layout` + `slug`; the layout looks the slug up in `chapters.ts` for the title, hook, number, sidebar highlight, and header prev/next. `index.astro` renders through the same layout with **no** slug, which is what selects the `.home` branch instead of the `.stage` branch.
+- `src/layouts/Chapter.astro` is the only layout. Chapter frontmatter is just `layout` + `slug`; the layout looks the slug up in `chapters.ts` for the title, hook, number, sidebar highlight, and header prev/next. `index.astro` renders through the same layout with **no** slug, which is what selects the `.home` branch instead of the `.stage` branch. The layout also writes each page's link-preview tags: the `<title>` and `og:title` are the site name alone on the home page and `Title · Learning SGLang` on a chapter, the description is the tagline or `Chapter N of Learning SGLang.` plus the hook, and every page shares one card image, `public/og.png`.
 - `src/styles/global.css` is the design system for the page — no Tailwind, no per-component palette. Colours are custom properties on `:root` (`--accent`, `--gen`, `--eos`, `--muted`, `--line`, …); use them instead of literals. `.stage` is a flex column and `.viz` is `flex: 1 1 auto; min-height: 0`, which is why every visualization's root element is `class="viz"` — that's the contract that makes it fill the leftover height.
 - `src/styles/stage.css` is the design system for the stage: the `.viz` / `.canvas` frame and the SVG text classes every chapter uses (`.rowlabel`, `.boxtitle`, `.tag`, `.mono`, `.kname`, `.steplabel`, `.slab`, `.legend`, `.footnote`, `.pt`). Its rules sit inside `:where(.viz)`, so a component's own scoped rule for a class overrides it; a component restyles a class only where it means to differ, and does not copy the shared rule.
 

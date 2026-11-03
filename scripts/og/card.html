@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- The link-preview card (public/og.png). Regenerate after changing it: npm run og -->
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Inter; src: url(../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2); font-weight: 100 900; }
+  @font-face { font-family: Mono; src: url(../../node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2); font-weight: 100 800; }
+  html, body { margin: 0; }
+  .card { width: 600px; height: 315px; box-sizing: border-box; padding: 34px 30px 26px 40px; background: #faf9f6; font-family: Inter, sans-serif; color: #1c1b19;
+          display: grid; grid-template-columns: 1fr 250px; gap: 26px; align-items: center; }
+  .eyebrow { font-family: Mono, monospace; font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a776f; }
+  h1 { font-size: 40px; font-weight: 750; letter-spacing: -0.025em; line-height: 1.05; margin: 10px 0 12px; }
+  .tag { font-size: 16px; line-height: 1.35; color: #7a776f; margin: 0 0 14px; }
+  .by { font-size: 11.5px; color: #7a776f; margin: 0; }
+  .by b { color: #1c1b19; font-weight: 550; }
+  .url { font-family: Mono, monospace; font-size: 9px; color: #b8b4aa; margin-top: 34px; }
+  .panel { background: white; border: 1px solid #e6e3db; border-radius: 12px; padding: 14px 12px 10px; }
+  svg { display: block; width: 100%; height: auto; font-family: Inter, sans-serif; }
+  .sent { font-family: Mono, monospace; font-size: 15px; fill: #1c1b19; }
+  .sent .new { fill: #d97706; font-weight: 600; }
+  .note { font-size: 11px; fill: #7a776f; }
+  .stop { font-size: 12px; font-weight: 600; }
+</style>
+<div class="card">
+  <div>
+    <div class="eyebrow">An illustrated guide to LLM inference</div>
+    <h1>Learning SGLang</h1>
+    <p class="tag">Inference engines, from the problems up.</p>
+    <p class="by">Written and drawn by <b>Wilson Zheng</b></p>
+    <div class="url">wilsonzheng0327.github.io/learning-sglang</div>
+  </div>
+  <div class="panel">
+    <svg viewBox="122 12 276 292">
+      <defs>
+        <marker id="g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706" /></marker>
+        <marker id="l" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#d9d5cb" /></marker>
+      </defs>
+      <text x="260" y="38" text-anchor="middle" class="sent">The capital of France is <tspan class="new">Paris</tspan></text>
+      <path d="M 297.5 116.0 A 92 92 0 0 1 351.5 209.5" fill="none" stroke="#e6e3db" stroke-width="2.5" marker-end="url(#l)" /><path d="M 314.0 274.5 A 92 92 0 0 1 206.0 274.5" fill="none" stroke="#e6e3db" stroke-width="2.5" marker-end="url(#l)" /><path d="M 168.5 209.5 A 92 92 0 0 1 222.5 116.0" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#g)" />
+      <circle cx="260.0" cy="108.0" r="34" fill="#2f5bea" stroke="#2f5bea" stroke-width="1.5" /><text x="260.0" y="112.0" text-anchor="middle" class="stop" fill="white">forward</text><circle cx="339.7" cy="246.0" r="34" fill="white" stroke="#2f5bea" stroke-width="1.5" /><text x="339.7" y="250.0" text-anchor="middle" class="stop" fill="#1c1b19">pick</text><circle cx="180.3" cy="246.0" r="34" fill="white" stroke="#2f5bea" stroke-width="1.5" /><text x="180.3" y="250.0" text-anchor="middle" class="stop" fill="#1c1b19">append</text>
+      <text x="260" y="204" text-anchor="middle" class="note">until EOS</text>
+    </svg>
+  </div>
+</div>

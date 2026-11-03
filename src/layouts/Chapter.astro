@@ -20,6 +20,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const pad = (n: number) => String(n).padStart(2, '0');
 const prev = idx > 0 ? chapters[idx - 1] : undefined;
 const next = idx >= 0 ? chapters[idx + 1] : undefined;
+// what a shared link shows: the home page is the site alone, a chapter its title and hook; one card image for all (npm run og)
+const pageTitle = chapter ? `${title} · ${site.name}` : site.name;
+const description = chapter ? `Chapter ${idx + 1} of ${site.name}. ${hook ?? ''}`.trim() : `${site.tagline} An illustrated guide, one picture per chapter.`;
+const pageUrl = new URL(Astro.url.pathname, Astro.site);
+const image = new URL(`${base}/og.png`, Astro.site);
 ---
 <html lang="en">
   <head>
@@ -29,7 +34,19 @@ const next = idx >= 0 ? chapters[idx + 1] : undefined;
     <!-- preloaded so a page's first paint already has them: a font swapping in after it shifts the sidebar's text -->
     <link rel="preload" href={interUrl} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={monoUrl} as="font" type="font/woff2" crossorigin />
-    <title>{title} · {site.name}</title>
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={pageUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={`${site.name}: ${site.tagline}`} />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div class="shell">
