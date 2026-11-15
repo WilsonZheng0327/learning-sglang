@@ -59,11 +59,12 @@ export async function launch({ port, width = 1440, height = 900 }) {
   });
 
   // One tab at a fixed viewport. Every method runs against this tab only.
-  const tab = async ({ scale = 1 } = {}) => {
+  // width/height/mobile override the window's size for this tab: { width: 390, height: 844, mobile: true } is a phone
+  const tab = async ({ scale = 1, width: w = width, height: h = height, mobile = false } = {}) => {
     const { result: { targetId } } = await send('Target.createTarget', { url: 'about:blank', newWindow: true });
     const { result: { sessionId } } = await send('Target.attachToTarget', { targetId, flatten: true });
     await send('Page.enable', {}, sessionId);
-    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: scale, mobile: false }, sessionId);
+    await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: scale, mobile }, sessionId);
     return {
       async goto(url) { const loaded = waitEvent('Page.loadEventFired', sessionId); await send('Page.navigate', { url }, sessionId); await loaded; },
       async press(name) {

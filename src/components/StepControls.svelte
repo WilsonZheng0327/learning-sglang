@@ -36,12 +36,12 @@
     <div class="buttons">
       <button class="icon" onclick={() => jump(0)} disabled={atStart} title="Reset">↺</button>
       {#if prevLink}
-        <a class="chapter" href={prevLink.href}>← {prevLink.title}</a>
+        <a class="chapter" href={prevLink.href}><span>← {prevLink.title}</span></a>
       {:else}
         <button class="icon" onclick={() => go(-1)} disabled={atStart} title="Previous">←</button>
       {/if}
       {#if nextLink}
-        <a class="chapter next" href={nextLink.href}>Next: {nextLink.title} →</a>
+        <a class="chapter next" href={nextLink.href}><span>Next: {nextLink.title} →</span></a>
       {:else}
         <button class="icon" onclick={() => go(1)} disabled={atEnd} title="Next">→</button>
       {/if}
@@ -80,4 +80,18 @@
   .seg:hover { opacity: 0.8; background: var(--accent); }
   .counter { font-family: var(--mono); color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
   .counter em { font-style: normal; color: var(--faint); }
+
+  /* Phones: the stage is narrower than 60ch, so a caption can take more than three lines. Let it grow past a five-line floor
+     (most captions fit in five, so the buttons rarely move), put the progress bar on its own line, and let its segments shrink. */
+  @media (max-width: 900px) {
+    .caption { font-size: 1.05rem; height: auto; min-height: calc(1.05rem * var(--lh) * 5); margin: 0.4rem 0; overflow: visible; }
+    .caption span { max-width: 100%; overflow-wrap: anywhere; }
+    .row { flex-wrap: wrap; gap: 0.6rem 0.75rem; }
+    .buttons { flex: 1 1 100%; min-width: 0; margin-right: 0; }
+    .chapter { flex: 0 1 auto; min-width: 0; }
+    .chapter span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .progress { flex: 1 1 0; min-width: 0; gap: 3px; }
+    .seg { flex: 1 1 26px; width: auto; min-width: 3px; max-width: 26px; height: 8px; }
+    .icon { flex: 0 0 40px; }
+  }
 </style>
