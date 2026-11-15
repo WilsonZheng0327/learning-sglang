@@ -12,6 +12,7 @@
     "astro": "astro",
     "shot": "node scripts/shot.mjs",
     "transcript": "node scripts/transcript.mjs",
+    "mobile": "node scripts/mobile.mjs",
     "og": "CLIP=0,0,600,315 node scripts/shot.mjs public 500 \"og=file://$PWD/scripts/og/card.html\""
   },
   "dependencies": {

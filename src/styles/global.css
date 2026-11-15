@@ -17,7 +17,7 @@
   --sidebar: 268px;
 }
 * { box-sizing: border-box; }
-html { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+html { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { margin: 0; }
 a { color: inherit; text-decoration: none; }
 
@@ -30,6 +30,8 @@ a { color: inherit; text-decoration: none; }
 ::view-transition-group(sidebar), ::view-transition-old(sidebar), ::view-transition-new(sidebar) { animation: none; }
 .sidebar { view-transition-name: sidebar; overflow-anchor: none; }
 .sidebar { background: var(--panel); border-right: 1px solid var(--line); padding: 1.5rem 1.5rem 1.25rem; position: sticky; top: 0; height: 100vh; overflow: auto; display: flex; flex-direction: column; }
+.sidebar .brandrow, .sidebar .navbody { display: contents; }
+.sidebar .menu { display: none; }
 .sidebar .brand { display: block; color: var(--fg); margin-bottom: 0.25rem; font-weight: 650; font-size: 1.05rem; letter-spacing: -0.01em; }
 .sidebar .tagline { color: var(--muted); font-size: 0.8rem; margin: 0 0 1.75rem; }
 .sidebar ol { list-style: none; padding: 0; margin: 0; }
@@ -66,7 +68,8 @@ a { color: inherit; text-decoration: none; }
 .stage details[open] { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 0.75rem 1rem; }
 .stage pre { font-size: 0.85rem; line-height: 1.55; padding: 0.9rem 1.1rem; border-radius: 8px; overflow-x: auto; border: 1px solid var(--line); margin: 0.6rem 0 0; }
 .stage code { font-family: var(--mono); }
-.stage .katex-display { margin: 0.6rem 0 0; }
+.stage .katex-display { margin: 0.6rem 0 0; overflow-x: auto; overflow-y: hidden; }
+.stage details { min-width: 0; overflow-wrap: break-word; }
 
 /* home page */
 .home { max-width: none; padding: 3.5rem 4rem 3rem; }
@@ -107,11 +110,30 @@ a { color: inherit; text-decoration: none; }
 .sidebar .repo { display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.4rem; font-size: 0.75rem; color: var(--muted); }
 .sidebar .repo:hover { color: var(--accent); }
 
+/* phones and narrow windows: the sidebar folds into a top bar with a Chapters button, the stage flows at its natural height */
 @media (max-width: 900px) {
-  .shell { grid-template-columns: 1fr; }
-  .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 0.7rem 1rem; }
+  .sidebar .brandrow { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .sidebar .brand { margin: 0; }
+  .sidebar .menu { display: inline-flex; align-items: center; height: 34px; padding: 0 0.9rem; font: inherit; font-size: 0.85rem; color: var(--fg); background: white; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+  .sidebar .menu::after { content: '▾'; margin-left: 0.4rem; font-size: 0.75em; color: var(--muted); }
+  .sidebar.open .menu::after { content: '▴'; }
+  .sidebar .navbody { display: none; }
+  .sidebar.open .navbody { display: block; padding-top: 0.9rem; }
+  .sidebar .tagline { margin-bottom: 1rem; }
   .sidebar .hints { display: none; }
-  .home { padding: 2rem 1.25rem; }
-  .home .hero { grid-template-columns: 1fr; gap: 1.5rem; }
-  .stage { height: auto; min-height: 100vh; padding: 1rem; }
+  .sidebar li a, .sidebar li span { padding-top: 0.45rem; padding-bottom: 0.45rem; }
+  .home { padding: 1.75rem 1rem; }
+  .home .hero { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+  .home h1 { font-size: 2.2rem; }
+  .home .sub { font-size: 1.1rem; }
+  .home .toc ol { grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); }
+  .home .foot { flex-wrap: wrap; gap: 0.5rem 2rem; }
+  .stage { height: auto; min-height: 0; padding: 0.9rem 0.75rem 1.25rem; gap: 0.6rem; }
+  .stage-head { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+  .stage-head h1 { font-size: 1.35rem; }
+  .stage-head .hook { font-size: 0.92rem; }
+  .chapter-nav { white-space: normal; flex-wrap: wrap; justify-content: space-between; gap: 0.3rem 1rem; padding-bottom: 0; font-size: 0.8rem; }
+  .stage .viz .canvas { padding: 0.35rem; border-radius: 12px; }
 }

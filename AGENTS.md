@@ -8,6 +8,7 @@ npx astro dev --background     # then: astro dev stop | astro dev status | astro
 npm run build                  # the type check
 npm run preview
 npm run transcript             # with the dev server up: transcripts + layout checks (ONLY=N for one chapter)
+npm run mobile                 # with the dev server up: every page and step at 360/390/430 px, flags sideways scroll and clipped captions
 npm run shot -- <outDir> <waitMs> 'name=url' ...   # screenshots
 npm run og                     # re-render public/og.png, the link-preview card, from scripts/og/card.html
 ```
@@ -174,7 +175,7 @@ Typeset math on the stage goes through KaTeX inside a `<foreignObject>` (`katex.
 
 ## Checking steps without a browser
 
-`npm run shot -- <outDir> <waitMs> name=url ...` (`scripts/shot.mjs`) screenshots pages through headless Chrome with a real wall-clock wait, so Svelte transitions finish. Needs Node 22+; it finds Chrome itself (`$CHROME`, then `chromium` or `google-chrome` on PATH, then the macOS app). Quote each `name=url` in zsh, where an unquoted `?step=` is a glob. Append `|ArrowRight,ArrowRight` to a url to press keys after load; set `CLIP=x,y,w,h` to capture one region at 2x and `SCALE=2` for a full-page 2x. Plain `chromium --screenshot --virtual-time-budget` freezes delayed transitions mid-flight and is not trustworthy for this site. Chrome throttles background tabs, which stalls Svelte transitions (old scenes linger, new text never fades in); `scripts/lib/browser.mjs` launches with that throttling off, so any script that drives more than one tab must go through it.
+`npm run shot -- <outDir> <waitMs> name=url ...` (`scripts/shot.mjs`) screenshots pages through headless Chrome with a real wall-clock wait, so Svelte transitions finish. Needs Node 22+; it finds Chrome itself (`$CHROME`, then `chromium` or `google-chrome` on PATH, then the macOS app). Quote each `name=url` in zsh, where an unquoted `?step=` is a glob. Append `|ArrowRight,ArrowRight` to a url to press keys after load; set `CLIP=x,y,w,h` to capture one region at 2x, `SCALE=2` for a full-page 2x, and `PHONE=1` (or `PHONE=360x780`) for a phone viewport. Plain `chromium --screenshot --virtual-time-budget` freezes delayed transitions mid-flight and is not trustworthy for this site. Chrome throttles background tabs, which stalls Svelte transitions (old scenes linger, new text never fades in); `scripts/lib/browser.mjs` launches with that throttling off, so any script that drives more than one tab must go through it.
 
 `npm run transcript` (`scripts/transcript.mjs`; same requirements, plus a running dev server) writes `transcript/NN-slug.md` for every ready chapter: each step's caption, every piece of text on the stage once its phases have settled (a dot shows as `·`, a footnote as `_footnote:_`), and the chapter's prose. Read those to check wording and numbers across chapters instead of opening the components; `ONLY=13` regenerates one chapter. It also checks every step and flags, in the file and on stdout: captions over three lines, text past the stage's edge, text overlapping text, a footnote not centred at the bottom or sitting on a drawn shape, a leftover grey `.legend.muted` line, a lone dot, and a round bullet. The files are generated — edit the component or MDX, then rerun, and commit the regenerated transcript with the change.
 
@@ -186,6 +187,10 @@ The loop that works: edit the component → `npm run build` (the only type check
 2. Add `src/pages/ch/NN-slug.mdx` with the frontmatter shown in `01-inference.mdx` — `layout` and `slug` only; title and hook come from `chapters.ts`.
 3. Build its viz in `src/components/viz/` by copying `AutoregressiveGen.svelte` and replacing the script and the SVG. Take its numbers from `src/numbers.ts` and its text classes from `src/styles/stage.css`.
 4. Add the row to the README's chapter table.
+
+## Phones
+
+Below 900 px the sidebar folds into a top bar with a **Chapters** button, the stage flows at its natural height instead of filling the viewport, the caption may grow past three lines (with a five-line floor so the buttons rarely move), and the progress bar takes its own line with segments that shrink. The SVG scales with the stage width, so stage text gets small but never breaks the page. `npm run mobile` checks every page and step at 360, 390 and 430 px for sideways scroll, clipped captions and controls past the edge; run it after touching the layout, `StepControls.svelte` or `global.css`.
 
 ## Deploy to GitHub Pages
 

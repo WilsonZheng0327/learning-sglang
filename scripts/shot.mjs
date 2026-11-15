@@ -3,6 +3,7 @@
 //   name=url|Key,Key   presses keys after load: "|ArrowRight,ArrowRight" steps twice
 //   CLIP=x,y,w,h       captures just that CSS-pixel region, at 2x
 //   SCALE=2            a full-page capture at 2x
+//   PHONE=1            a 390×844 phone viewport (PHONE=360x780 for another size)
 // Finds Chrome itself (see lib/browser.mjs); Node 22+.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,7 +15,8 @@ const waitMs = Number(waitMsArg) || 2500;
 mkdirSync(outDir, { recursive: true });
 
 const browser = await launch({ port: 9333 });
-const page = await browser.tab({ scale: Number(process.env.SCALE) || 1 });
+const phone = process.env.PHONE && (process.env.PHONE === '1' ? [390, 844] : process.env.PHONE.split('x').map(Number));
+const page = await browser.tab({ scale: Number(process.env.SCALE) || 1, ...(phone ? { width: phone[0], height: phone[1], mobile: true } : {}) });
 const clip = process.env.CLIP ? (([x, y, width, height]) => ({ x, y, width, height, scale: 2 }))(process.env.CLIP.split(',').map(Number)) : undefined;
 for (const pair of pairs) {
   const eq = pair.indexOf('='); const name = pair.slice(0, eq);
